@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.venv/
+
+# third-party benchmark data, downloaded by src/variant_effect/data.py
+data/*.zip
+data/*.csv
+data/proteingym/
+
+# model weights live in the huggingface cache, not here
+*.pt
+*.safetensors
