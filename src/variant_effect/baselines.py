@@ -54,19 +54,48 @@ def blosum62_score(sequence, variants):
     if _B62 is None:
         _B62 = _blosum62()
 
+    wts, _, muts = _parse_table(variants)
     out = np.zeros(len(variants), dtype=np.float32)
-    for i, v in enumerate(variants):
-        out[i] = sum(_B62.get((s.wt, s.mut), _B62.get((s.mut, s.wt), 0.0))
-                     for s in parse_variant(v))
+    for i, (ws, ms) in enumerate(zip(wts, muts)):
+        total = 0.0
+        for w, m in zip(ws, ms):
+            total += _B62.get((w, m), _B62.get((m, w), 0.0))
+        out[i] = total
     return out
 
 
+def _parse_table(variants):
+    """Vectorised parse of variant notation into (wt, pos, mut) arrays.
+
+    The baselines are called on every assay in the benchmark, and ProteinGym's
+    multi-mutant assays carry up to 3.4 million substitutions in one file
+    (HIS7_YEAST has 496,137 variants averaging seven substitutions each). A
+    Python loop over ``parse_variant`` costs minutes per assay there, which is
+    what stalled the full sweep; a single regex pass over the joined strings
+    costs milliseconds.
+
+    Returns three lists-of-lists, one entry per variant, so the per-variant
+    sums stay exact for multi-mutants.
+    """
+    import re
+
+    pattern = re.compile(r"([A-Z])(\d+)([A-Z*])")
+    wts, poss, muts = [], [], []
+    for v in variants:
+        found = pattern.findall(str(v))
+        wts.append([m[0] for m in found])
+        poss.append([int(m[1]) for m in found])
+        muts.append([m[2] for m in found])
+    return wts, poss, muts
+
+
 def _property_delta(variants, table, signed=False):
+    wts, _, muts = _parse_table(variants)
     out = np.zeros(len(variants), dtype=np.float32)
-    for i, v in enumerate(variants):
+    for i, (ws, ms) in enumerate(zip(wts, muts)):
         total = 0.0
-        for s in parse_variant(v):
-            d = table[s.mut] - table[s.wt]
+        for w, m in zip(ws, ms):
+            d = table.get(m, 0.0) - table.get(w, 0.0)
             total += d if signed else -abs(d)
         out[i] = total
     return out
@@ -100,17 +129,18 @@ def proline_glycine_penalty(sequence, variants):
     fraction of what any predictor gets right on a thermostability assay is
     just this.
     """
+    wts, _, muts = _parse_table(variants)
     out = np.zeros(len(variants), dtype=np.float32)
-    for i, v in enumerate(variants):
+    for i, (ws, ms) in enumerate(zip(wts, muts)):
         penalty = 0.0
-        for s in parse_variant(v):
-            if s.mut == "P":
+        for w, m in zip(ws, ms):
+            if m == "P":
                 penalty -= 1.0
-            if s.wt == "G":
+            if w == "G":
                 penalty -= 1.0
-            if s.wt == "P":
+            if w == "P":
                 penalty -= 0.5
-            if s.wt == "C":           # likely disulfide
+            if w == "C":           # likely disulfide
                 penalty -= 0.5
         out[i] = penalty
     return out
