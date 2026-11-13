@@ -1,2 +1,0 @@
-assay,taxon,organism,seq_len,selection,msa_depth,msa_rows_total,msa_rows_used,neff_l_ours,neff_l_published,spearman,official_site_independent,official_esm2_650m
-R1AB_SARS2_Flynn_2022,Virus,Severe acute respiratory syndrome coronavirus 2 (2019-nCoV) (SARS-CoV-2),306,OrganismalFitness,Medium,182169,5000,0.05555555555555555,1.14,0.5410108976022088,0.577,0.105
