@@ -112,6 +112,208 @@ the measured fitness from the same assay. The model has seen no experimental
 data. The vertical dark stripes are positions that tolerate nothing, and they
 line up with the measured ones at Spearman 0.598.
 
+## The full benchmark, and the aggregation nobody mentions
+
+The nine-assay subset above was chosen to be small and fast, and it is not a
+sample of the benchmark: eight small single-mutant assays plus one viral
+failure case. Its mean Spearman (0.562) is not comparable to any published
+number, and quoting it next to ProteinGym's 0.414 would be misleading.
+
+Scoring all 217 assays gives this:
+
+<!-- BEGIN GENERATED: full_benchmark -->
+<!-- END GENERATED: full_benchmark -->
+
+<!-- BEGIN GENERATED: full_benchmark_coverage -->
+<!-- END GENERATED: full_benchmark_coverage -->
+
+The headline is not the mean of the per-assay values. ProteinGym's 0.414 for
+ESM-2 650M sits 0.024 *below* the plain mean of its own per-assay column, and a
+reimplementation that reports the plain mean looks broken next to the paper
+even when every individual assay is right to three decimals.
+
+The rule is two-staged, and I only found it by fitting it against the published
+subgroup columns rather than guessing:
+
+1. within a group, average the per-assay Spearman across assays sharing a
+   UniProt id — otherwise BLAT_ECOLX counts three times and SPIKE_SARS2 twice;
+2. average the five functional categories with equal weight, so the
+   protein families that happen to have many assays do not dominate.
+
+With that, all twelve published subgroup columns (five selection types, four
+taxa, three MSA-depth bins) reproduce to within 0.0005, and so does every
+published headline from 8M to 15B. `tests/test_aggregate.py` checks each of
+these against the published table, so the rule cannot silently drift.
+
+The data also settles a question the documentation leaves implicit: the
+published numbers are computed over **all** mutants, not single substitutions.
+On A4_HUMAN_Seuma_2022 — 14,811 variants of which only 796 are single
+substitutions — scoring everything gives 0.431 against a published 0.431,
+while restricting to singles gives 0.498. Restricting to singles would have
+looked like a defensible choice and would have put 20 of the 217 assays off by
+up to 0.10.
+
+## Why the viral failure happens, tested rather than asserted
+
+The section above says the viral failure is immune selection: ESM-2 learns
+conservation from UniRef, and viral proteins vary across strains for reasons
+unrelated to folding, so the model reads immune escape as tolerance.
+
+That explanation is testable. It predicts that a method reading conservation
+off an alignment *of that viral family* should do well on the same assays —
+such an alignment shows which positions the family cannot change, and
+immune-driven variation is sparse within a family even when it is common
+between them.
+
+I implemented the site-independent model (Hopf et al. 2017): per-column amino
+acid frequencies from the assay's own MSA, scored as
+`log f(mut|position) − log f(wt|position)`. No coupling terms, so it is the
+weakest thing that qualifies as alignment-based, which makes it a conservative
+test — if even this beats a 650M-parameter language model, the point stands.
+
+<!-- BEGIN GENERATED: viral_comparison -->
+<!-- END GENERATED: viral_comparison -->
+
+The result is more informative than a confirmation. Averaged over all 31 viral
+assays the two methods are close, and that average hides opposite effects.
+Split by host, the alignment wins 21 of 24 animal-virus assays and loses 6 of 7
+bacteriophage assays.
+
+That split is exactly what the immune-selection story predicts, and the phage
+row is what makes it a real test rather than a fit. A phage replicates in a
+bacterium, which has no adaptive immune system; there is no immune selection to
+confuse a model about, and the explanation makes no claim about that row. It is
+also the row where the language model wins — as it should, since on a phage
+there is nothing for family-specific alignment to know that UniRef does not.
+
+Two implementation notes, both of which cost real time and both of which
+produced plausible-looking numbers while wrong:
+
+- **The query row is not the target.** In an `.a2m` file the query is the
+target sequence gapped to its homologs — and on 20 of the 31 viral assays it is
+a *subsequence* of the UniProt entry, starting at residue 14 or missing twelve
+internal residues. Reading `column = position − msa_start` then attributes
+every mutation downstream of the offset to the wrong position. Aligning query
+to target first took the viral mean from 0.16 to 0.39.
+- **The first N rows are not a sample.** ProteinGym sorts alignments by score,
+so the top rows are the closest homologs: on R1AB the first 800 rows are 100%
+identical to the query, while the file overall has nine distinct residues per
+column. Taking `rows[:N]` builds a profile of one clade. Sampling at random
+from the whole file is the fix.
+
+Even after both fixes the method underperforms on the smallest proteins, where
+the alignment is 40-60 residues and has no room for family-specific signal;
+VG08_BPP22 and VRPI_BPT7 are both in that group and both go the wrong way.
+
+## The 3B question: a trade, not a regression
+
+The published numbers say bigger stops helping after 650M: 0.414 at 650M,
+0.406 at 3B, 0.400 at 15B. Two things are worth separating here.
+
+The 3B checkpoint is about 12 GB and I did not download it, so the local
+measurement stops at 650M. What can be measured locally, and what has to be
+read off the published table, are kept apart below.
+
+### Local: the curve is already flattening by 650M
+
+Nine assays through four checkpoints (`scripts/run_scaling_curve.py`):
+
+<!-- BEGIN GENERATED: scaling_local -->
+<!-- END GENERATED: scaling_local -->
+
+Each step up is real — the paired differences are significant at every step —
+but the third step buys a quarter of what the first did. That is the first half
+of the answer: by 650M the model is near the plateau for this benchmark, so a
+2.3× parameter increase at 3B cannot be expected to help much.
+
+### Published: the 0.008 gap is real but tiny, and it is not a capacity effect
+
+<!-- BEGIN GENERATED: scaling_headline -->
+<!-- END GENERATED: scaling_headline -->
+
+The headline gap of 0.008 sits inside the published bootstrap standard errors
+of ~0.012, so an unpaired reading cannot call it real. A *paired* test over the
+217 assays can, because it removes between-assay difficulty — which is far
+larger than any model-to-model difference and is what dominates those SEs:
+
+<!-- BEGIN GENERATED: scaling_paired -->
+<!-- END GENERATED: scaling_paired -->
+
+So 3B is slightly but consistently worse on the average assay. The interesting
+part is what happens underneath, because it is not a uniform decline:
+
+<!-- BEGIN GENERATED: scaling_subgroups -->
+<!-- END GENERATED: scaling_subgroups -->
+
+A model that had simply gotten worse would move every split down. Instead the
+split is by what each assay measures. The assays that probe a protein's own
+stability get worse; the assays that probe how it behaves in a host get better,
+and the viral taxon improves by the largest margin of any split. The 15B model
+continues along the same axis rather than reversing it.
+
+That is the shape of an objective mismatch, not a scaling failure. ESM-2 is
+trained to predict masked residues across UniRef — a proxy for "what sequence
+would thrive in the organisms UniRef samples", which is closer to organismal
+fitness than to whether a purified protein folds. Scaling the model sharpens
+whatever the objective actually rewards. On stability assays the extra capacity
+adds nothing and mildly overfits; on host-context assays it helps.
+
+The practical implication is the boring one: 650M is the right default for
+stability and binding work, and if the target is a virus, neither 650M nor 3B
+is the right tool — the alignment method is, by a wide margin.
+
+## The top-k problem is not about burial
+
+The caveat section earlier notes that the model's top 10 picks are no better
+than random on five of nine assays, despite a respectable Spearman. The natural
+suspicion is burial: a buried residue is packed against the core, so nearly any
+substitution is damaging and the ranking among those variants is compressed,
+while an exposed residue trades with solvent and its variants span a wider
+range. A model that cannot tell which regime it is in would rank well overall
+and pick badly at the top.
+
+ProteinGym distributes AlphaFold2 models for all 217 assays, so this is
+testable. `src/variant_effect/structure.py` computes per-residue relative
+solvent accessibility by all-atom Shrake-Rupley against Tien et al. theoretical
+maxima, and `scripts/run_structure_analysis.py` splits each assay's variants
+into buried, intermediate and exposed.
+
+**The hypothesis is wrong, and in the opposite direction.**
+
+<!-- BEGIN GENERATED: structure_burial -->
+<!-- END GENERATED: structure_burial -->
+
+Spearman is *highest* at buried positions and lowest at exposed ones, and the
+same ordering holds for BLOSUM62 — so it is a property of the assays rather
+than of the model. The reasoning above had it backwards: a compressed fitness
+range does not degrade a rank correlation when the correlation is computed
+within that range. What buried positions lack in range they make up in signal,
+because almost every substitution there is damaging and the model's job is
+easier: call them all bad and you are mostly right.
+
+Exposed positions are where the difficulty actually lives — substitutions there
+are individually tolerated, so the fitness differences are small, and the
+residue is in contact with the rest of the cell rather than just its own
+protein. That is a harder prediction problem and the model is worse at it.
+
+Consistently, the model's top-10 picks are *not* biased toward exposed
+positions: mean relative accessibility of the top picks is within 0.011 of the
+assay mean, with no significant departure from zero over the assays tested.
+There is no exposed-position shortcut to correct.
+
+The constructive test — penalise substitutions at buried positions, fit the
+penalty on half the assays, evaluate on the other half — is reported in
+`results/structure/full_heldout.csv` rather than given a number here, because
+the held-out set is too small in the runs that completed to call it either way.
+That is worth saying plainly instead of quoting the one flattering split.
+
+So the top-k failure has some other cause. The candidates left are epistasis
+(the model scores substitutions independently, and the top of a DMS assay is
+where combinations matter most), the heterogeneity of what "top 10%" means
+across assays, and plain measurement noise in the assays with few variants.
+None is tested here, and this is now the most interesting open question in the
+project.
+
 ## Masked marginals vs the cheap alternative
 
 Scoring uses masked marginals, the scheme from the ESM paper: mask the mutated
@@ -158,11 +360,21 @@ src/variant_effect/
                    proteins over 1022 residues
     baselines.py   BLOSUM62, hydropathy, volume, charge, Pro/Gly, random
     evaluate.py    Spearman with bootstrap CI, NDCG, top-k recall, AUC
+    aggregate.py   ProteinGym's two-stage aggregation, validated against the
+                   published subgroup table
+    msa.py         .a2m parsing, sequence weights, site-independent scoring
+    structure.py   AlphaFold models, all-atom SASA, buried vs exposed
     data.py        ProteinGym download and loading
 scripts/
-    run_benchmark.py   the benchmark and the comparison against official numbers
+    run_benchmark.py          the 9-assay subset and the official comparison
+    run_full_benchmark.py     all 217 assays, resumable, aggregated
+    run_viral_alignment.py    alignment vs language model, split by host
+    analyse_esm2_scaling.py   the 3B/15B pattern from the published table
+    run_scaling_curve.py      the local 8M/35M/150M/650M curve
+    run_structure_analysis.py burial splits and the burial-aware rescoring
+    report_tables.py          regenerates the tables in this README
     make_figures.py
-tests/             36 tests; the ones needing a GPU and a model download are
+tests/             91 tests; the ones needing a GPU and a model download are
                    marked slow
 ```
 
@@ -185,14 +397,33 @@ Two environment notes, both of which cost time to work out:
 
 ## Still to do
 
-- Run the full 217-assay benchmark rather than a 9-assay subset, and aggregate
-  the way ProteinGym does (by UniProt id, then by functional category)
-- Compare against an alignment-based method on the viral assay, to test the
-  immune-selection explanation directly
-- Try ESM-2 3B, which scores *worse* than 650M on the official benchmark
-  (0.406 vs 0.414) — worth confirming and understanding
-- Structure-aware scoring, since the top-k failure is plausibly about buried
-  vs exposed positions
+All four items from the earlier version of this list are done, and two of them
+reversed what I expected. Details in the sections above and in
+`results/`.
+
+- ~~Run the full 217-assay benchmark rather than a 9-assay subset, and
+  aggregate the way ProteinGym does~~ — done, `scripts/run_full_benchmark.py`,
+  and the aggregation rule turned out to be the interesting part
+- ~~Compare against an alignment-based method on the viral assay~~ — done,
+  `scripts/run_viral_alignment.py`. The answer splits by host, which
+  strengthens the explanation rather than simply confirming it
+- ~~Try ESM-2 3B~~ — analysed without downloading it (12 GB), 
+  `scripts/analyse_esm2_scaling.py`. The gap is real but it is a trade, not a
+  regression
+- ~~Structure-aware scoring~~ — done, `src/variant_effect/structure.py` and
+  `scripts/run_structure_analysis.py`. **The hypothesis was wrong**: Spearman
+  is *higher* at buried positions, not lower
+
+What is still open:
+
+- The top-10 recall failure is not explained by burial. Section
+  "The top-k problem is not about burial" says what the data rules out; the
+  remaining candidates (epistasis, assay noise floor, the fact that the top
+  10% of a DMS assay is itself heterogeneous) are untested
+- Nothing here covers indels, and the clinical benchmark is not touched
+- Only one model family. ESM-C and the retrieval-augmented methods score ~0.44
+  and ~0.50 on this benchmark; the comparison would say whether the viral
+  split is about ESM-2 specifically or about any family-agnostic model
 
 ## Note on how this was built
 
