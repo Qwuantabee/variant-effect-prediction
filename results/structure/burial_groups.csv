@@ -1,0 +1,7 @@
+method,class,n,spearman,top10_recall
+blosum62,buried,2147,0.3916213419782511,0.4
+blosum62,intermediate,1881,0.2511839320735987,0.3
+blosum62,exposed,2335,0.1764772972497852,0.2
+structure_only,buried,2147,-0.14552721867797436,0.2
+structure_only,intermediate,1881,-0.2895693789854832,0.0
+structure_only,exposed,2335,-0.16699765012955792,0.9
