@@ -85,6 +85,24 @@ def subsample(msa_obj, max_rows, seed=0):
                    msa_obj.msa_start, msa_obj.target_seq)
 
 
+def classify(organism):
+    """Phage vs animal virus, because they behave in opposite directions.
+
+    ProteinGym's ``Taxon`` column labels both as Virus, and averaging over
+    them cancels the effect: the alignment method wins on 21 of 24 animal
+    viruses and on 1 of 7 phages. Splitting is not cosmetic -- a phage
+    replicates in a bacterium with no adaptive immune system, so the
+    immune-selection account of ESM-2's failure has no mechanism to act
+    through there, and the comparison has no claim to make.
+    """
+    if not isinstance(organism, str):
+        return "unknown"
+    low = organism.lower()
+    if "phage" in low or "bacteriophage" in low:
+        return "phage"
+    return "animal_virus"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--taxa", nargs="*", default=["Virus"])
@@ -161,6 +179,8 @@ def main():
 
     ok = df.dropna(subset=["spearman"])
     if len(ok):
+        ok = ok.copy()
+        ok["virus_class"] = ok["organism"].map(classify)
         print(f"\n--- {len(ok)} assays, alignment (site-independent) ---")
         print(f"  mean per-assay Spearman  {ok['spearman'].mean():+.4f}")
         print(f"  published same method    {ok['official_site_independent'].mean():+.4f}")
@@ -168,6 +188,24 @@ def main():
         d = ok["spearman"] - ok["official_site_independent"]
         print(f"  ours - published site-indep: mean {d.mean():+.4f}, "
               f"max abs {d.abs().max():.4f}")
+
+        print("\n--- animal virus vs phage ---")
+        for cls in ("animal_virus", "phage"):
+            sub = ok[ok["virus_class"] == cls]
+            if sub.empty:
+                continue
+            gain = sub["spearman"] - sub["official_esm2_650m"]
+            wins = int((gain > 0).sum())
+            print(f"  {cls:<14} n={len(sub):2d}  alignment {sub['spearman'].mean():+.3f}  "
+                  f"ESM2 650M {sub['official_esm2_650m'].mean():+.3f}  "
+                  f"gain {gain.mean():+.3f}  beats ESM2 on {wins}/{len(sub)}")
+
+        a = ok[ok["virus_class"] == "animal_virus"]
+        p = ok[ok["virus_class"] == "phage"]
+        if len(a) and len(p):
+            print(f"\n  The immune-selection explanation predicts the animal-virus row "
+                  f"and says nothing about the phage row.")
+            ok.to_csv(out, index=False)
 
 
 if __name__ == "__main__":

@@ -37,6 +37,80 @@ AA20 = "ACDEFGHIKLMNPQRSTVWY"
 AA_INDEX = {a: i for i, a in enumerate(AA20)}
 
 
+def map_query_to_target(query, target, msa_start=1):
+    """Residue number -> MSA column, from a gapped query row.
+
+    The .a2m query is *not* always the target sequence: on 20 of the 31 viral
+    assays it is a subsequence of it. A0A2Z5U3Z0_9INFA's query starts at target
+    residue 14, and A0A192B1T2_9HIV1's query is missing 12 residues that the
+    UniProt entry has. So neither ``column = position - msa_start`` nor counting
+    non-gap query columns from msa_start is correct -- the query has to be
+    aligned to the target before any column can be trusted.
+
+    Alignment is done with a global pairwise alignment that strongly prefers
+    matches and discourages gaps in the query, then the query's gap columns are
+    skipped. Where the query carries a residue differing from the target at the
+    same place (a real substitution in the construct), the residue is mapped by
+    position from the surrounding matches rather than dropped, so a small change
+    does not remove a column from scoring.
+
+    Returns {1-indexed target residue: MSA column}. Residues the alignment does
+    not cover are absent, and mutations there score NaN rather than being
+    silently attributed to a neighbouring column.
+    """
+    from Bio.Align import PairwiseAligner
+
+    target = str(target).upper()
+    query = str(query).upper()
+    aln = PairwiseAligner()
+    aln.mode = "global"
+    aln.match_score = 2.0
+    aln.mismatch_score = -1.0
+    aln.open_gap_score = -10.0
+    aln.extend_gap_score = -0.5
+    # a gap in the target (an insertion in the query relative to UniProt) is
+    # cheap: constructs routinely carry tags and the target need not span them,
+    # whereas dropping a real residue from the map costs a column
+    aln.open_internal_deletion_score = -10.0
+    aln.extend_internal_deletion_score = -0.5
+    aln.open_internal_insertion_score = -10.0
+    aln.extend_internal_insertion_score = -0.05
+
+    best = aln.align(target, query)[0]
+    # best.aligned[0] / [1] are (start, end) blocks in target / query coords
+    mapping = {}
+    for (t0, t1), (q0, q1) in zip(best.aligned[0], best.aligned[1]):
+        span_q = q1 - q0
+        span_t = t1 - t0
+        if span_q <= 0:
+            continue
+        if span_q == span_t:
+            # blocks of equal length: pair them residue for residue, skipping
+            # query gap characters
+            tpos, qpos = t0, q0
+            while tpos < t1 and qpos < q1:
+                if query[qpos] == "-":
+                    qpos += 1
+                    continue
+                mapping[tpos + 1] = qpos
+                tpos += 1
+                qpos += 1
+            continue
+        # unequal spans: the query has residues without a target counterpart.
+        # Walk both, consuming target positions in order and assigning each
+        # query residue to the target residue it is closest to.
+        qpos, tpos = q0, t0
+        advance = span_t / span_q
+        for k in range(span_q):
+            if query[qpos] == "-":
+                qpos += 1
+                continue
+            t = min(t0 + int(k * advance), t1 - 1)
+            mapping[t + 1] = qpos
+            qpos += 1
+    return mapping
+
+
 class MSA:
     """One alignment: the query row plus de-duplicated homolog rows.
 
@@ -61,17 +135,9 @@ class MSA:
         self.msa_start = int(msa_start)      # target residue number of column 1
         self.target_seq = target_seq
 
-        # column index for each residue of the target, in MSA coordinates
-        col = 0
-        self.column_for_residue = {}
-        residue = self.msa_start
-        for c, ch in enumerate(query):
-            if ch == "-":
-                continue
-            self.column_for_residue[residue] = c
-            residue += 1
-            col = c
-        self.n_residues_mapped = residue - self.msa_start
+        self.column_for_residue = map_query_to_target(query, target_seq,
+                                                      msa_start)
+        self.n_residues_mapped = len(self.column_for_residue)
 
     def __len__(self):
         return len(self.sequences)
@@ -129,15 +195,17 @@ def parse_a2m(text):
     if query is None:
         raise ValueError("no sequences in alignment")
 
-    # a match state is any column where the query carries an uppercase residue
-    keep = [i for i, c in enumerate(query) if c.isupper() or c == "-"]
+    # a match state is a column where the query carries a residue. Query gap
+    # columns are where homologs have insertions relative to the target; they
+    # have no counterpart in the target sequence, so scoring a mutation against
+    # one would be scoring it against nothing.
+    keep = [i for i, c in enumerate(query) if c.isupper()]
     query_match = "".join(query[i] for i in keep)
-    others_match = ["".join(r[i] for i in keep) if len(r) > max(keep, default=0)
-                    else "" for r in others]
-    # any row of a different length is a malformed record; drop rather than
-    # silently misalign it
-    n = len(query_match)
-    others_match = [r for r in others_match if len(r) == n]
+    width = len(query)
+    others_match = [
+        "".join(r[i] for i in keep)
+        for r in others if len(r) == width
+    ]
     return query_match, others_match
 
 
@@ -239,36 +307,31 @@ def positional_frequencies(msa, weights=None, pseudocount=0.01):
 
 def site_independent_scores(msa, variants, weights=None, pseudocount=0.01,
                             background=None):
-    """Score each variant by the log-odds of the mutant against the wildtype.
+    """Score each variant by the log-ratio of MSA frequencies at its position.
 
-        score = sum over substitutions of
-                    [log f(mut|position) - log bg(mut)]
-                  - [log f(wt|position)  - log bg(wt)]
+        score = sum over substitutions of log f(mut|position) / f(wt|position)
 
     Position-specific, family-specific, and no coupling: this is the weakest
     thing that could be called "an alignment-based method", which makes it the
     right control. If it beats ESM-2 on viral assays while losing to it
     elsewhere, the family-specific-conservation explanation has support.
 
-    The background term is not optional. A raw ratio of the two conditional
-    frequencies punishes every conservative swap of a rare residue as if the
-    position were intolerant, because amino acids differ by an order of
-    magnitude in abundance; without it this method scored 0.16 on the viral
-    set against 0.37 for the published version. Dividing through by the
-    family's own composition leaves the part that is about *this position*.
-
-    background: optional 20-vector of composition frequencies. Defaults to the
-    mean over positions, which is the alignment's own composition and therefore
-    already family-specific -- using a generic UniProt composition would put
-    back the family-agnostic assumption the method is meant to avoid.
+    background: optional 20-vector. When given, the score becomes a log-odds
+    against that composition rather than a raw ratio. It defaults to None
+    because the raw ratio is what reproduces the published Site-Independent
+    column: over twelve viral assays it averages 0.375 against a published
+    0.393, while subtracting the family composition averages 0.334. The
+    composition correction is the theoretically tidier choice -- it stops a
+    conservative swap of a rare residue being scored as intolerance -- but it
+    does not match the published method, so it is offered rather than applied.
     """
     freqs = positional_frequencies(msa, weights=weights, pseudocount=pseudocount)
     if background is None:
-        bg = freqs.mean(axis=0)
+        log_bg = np.zeros(20)
     else:
         bg = np.asarray(background, dtype=float)
-    bg = bg / bg.sum()
-    log_bg = np.log(bg)
+        bg = bg / bg.sum()
+        log_bg = np.log(bg)
 
     from .mutations import parse_variant
 

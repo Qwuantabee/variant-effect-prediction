@@ -10,6 +10,8 @@ dist/
 data/*.zip
 data/*.csv
 data/proteingym/
+data/msa/
+data/structures/
 
 # model weights live in the huggingface cache, not here
 *.pt
