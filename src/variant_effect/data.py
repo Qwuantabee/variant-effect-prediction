@@ -23,12 +23,18 @@ BASE = "https://marks.hms.harvard.edu/proteingym/ProteinGym_v1.3"
 RAW = "https://raw.githubusercontent.com/OATML-Markslab/ProteinGym/main"
 
 SUBSTITUTIONS_ZIP = f"{BASE}/DMS_ProteinGym_substitutions.zip"
+MSA_ZIP = f"{BASE}/DMS_msa_files.zip"
+AF2_ZIP = f"{BASE}/ProteinGym_AF2_structures.zip"
 REFERENCE_CSV = f"{RAW}/reference_files/DMS_substitutions.csv"
 OFFICIAL_SPEARMAN = (f"{RAW}/benchmarks/DMS_zero_shot/substitutions/Spearman/"
                      "DMS_substitutions_Spearman_DMS_level.csv")
+OFFICIAL_SUMMARY = (f"{RAW}/benchmarks/DMS_zero_shot/substitutions/Spearman/"
+                    "Summary_performance_DMS_substitutions_Spearman.csv")
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 ASSAY_DIR = DATA_DIR / "proteingym"          # extracted third-party data
+MSA_DIR = DATA_DIR / "msa"                   # extracted alignments
+STRUCTURE_DIR = DATA_DIR / "structures"      # extracted AlphaFold models
 
 # A spread across taxa and assay types, all single-substitution only and
 # under 300 residues so the whole benchmark runs in minutes rather than hours.
@@ -84,6 +90,20 @@ def official_scores():
     return df.set_index(df.columns[0])
 
 
+def official_summary():
+    """Published headline and subgroup averages, one row per predictor.
+
+    This is the table that holds the 0.414 headline for ESM-2 650M, along with
+    the per-category, per-taxon and per-MSA-depth splits. Having it locally is
+    what lets the aggregation rule in aggregate.py be checked rather than
+    asserted.
+    """
+    path = _download(OFFICIAL_SUMMARY,
+                     DATA_DIR / "official_summary_spearman.csv",
+                     "official summary Spearman")
+    return pd.read_csv(path).set_index("Model_name")
+
+
 def ensure_assays(assay_ids=None):
     """Download the archive once and extract only the assays asked for.
 
@@ -134,6 +154,69 @@ def load_assay(assay_id, reference=None, singles_only=True):
     sequence = row.iloc[0]["target_seq"]
 
     return df, sequence
+
+
+def structure_path(assay_id, reference=None):
+    """Path to the assay's predicted structure, extracting it on first use.
+
+    ProteinGym distributes AlphaFold2 models for all 217 assays (19 MB packed).
+    They are keyed by UniProt id rather than DMS id, and several assays share
+    one structure -- the two SPIKE_SARS2 assays are the same protein under two
+    readouts, and the three BLAT_ECOLX assays likewise -- so the file is looked
+    up by the reference table's ``pdb_file`` column, not by assay.
+    """
+    ref = reference if reference is not None else reference_table()
+    row = ref.loc[ref["DMS_id"] == assay_id]
+    if row.empty:
+        raise KeyError(f"{assay_id} not found in the reference table")
+    name = row.iloc[0]["pdb_file"]
+    if not isinstance(name, str) or not name:
+        raise KeyError(f"{assay_id} has no structure listed")
+
+    out = STRUCTURE_DIR / name
+    STRUCTURE_DIR.mkdir(parents=True, exist_ok=True)
+    if out.exists():
+        return out
+
+    archive = _download(AF2_ZIP, DATA_DIR / "ProteinGym_AF2_structures.zip",
+                        "AlphaFold2 structures (19 MB)")
+    with zipfile.ZipFile(archive) as zf:
+        member = next((n for n in zf.namelist() if Path(n).name == name), None)
+        if member is None:
+            raise KeyError(f"{name} is not in the structure archive")
+        out.write_bytes(zf.read(member))
+    return out
+
+
+def msa_path(assay_id, reference=None):
+    """Path to the assay's multiple sequence alignment, extracted on first use.
+
+    The archive is 1.5 GB packed and a single member is read by decompressing
+    from the start of the file, so extraction is cached on disk. Members are
+    keyed by the reference table's ``MSA_filename``, which is not the DMS id --
+    the filename carries the alignment's theta and build date.
+    """
+    ref = reference if reference is not None else reference_table()
+    row = ref.loc[ref["DMS_id"] == assay_id]
+    if row.empty:
+        raise KeyError(f"{assay_id} not found in the reference table")
+    name = row.iloc[0]["MSA_filename"]
+    if not isinstance(name, str) or not name:
+        raise KeyError(f"{assay_id} has no alignment listed")
+
+    out = MSA_DIR / name
+    MSA_DIR.mkdir(parents=True, exist_ok=True)
+    if out.exists():
+        return out
+
+    archive = _download(MSA_ZIP, DATA_DIR / "DMS_msa_files.zip",
+                        "ProteinGym alignments (1.5 GB)")
+    with zipfile.ZipFile(archive) as zf:
+        member = next((n for n in zf.namelist() if n.endswith(name)), None)
+        if member is None:
+            raise KeyError(f"{name} is not in the alignment archive")
+        out.write_bytes(zf.read(member))
+    return out
 
 
 def assay_metadata(assay_id, reference=None):
