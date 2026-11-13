@@ -86,7 +86,13 @@ def assay_frame(aid, reference, scorer=None):
     out.loc[out["rsa"].isna(), "burial"] = "multi_or_unmodelled"
 
     if scorer is not None:
-        out["esm"] = scorer.score_variants(seq, variants, batch_size=32)
+        seq_len = int(row["seq_len"])
+        if seq_len > 1022:
+            out["esm"] = scorer.score_variants_windowed(
+                seq, variants, batch_size=32)
+        else:
+            out["esm"] = scorer.score_variants(
+                seq, variants, batch_size=32)
     else:
         out["esm"] = np.nan
 
