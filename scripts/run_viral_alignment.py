@@ -29,6 +29,28 @@ Run:
     python scripts/run_viral_alignment.py --assays R1AB_SARS2_Flynn_2022 --max-rows 20000
 
 Outputs results/viral/<tag>.csv with one row per assay and method.
+
+
+Implementation traps (moved from the README)
+---------------------------------------------
+Two traps produced plausible numbers while wrong, and both cost real time.
+
+The query row is not the target. In an .a2m file the query is the target sequence
+gapped to its homologs, and on 20 of the 31 viral assays it is a subsequence of
+the UniProt entry, starting at residue 14 or missing twelve internal residues.
+Reading column = position - msa_start attributes every mutation downstream of the
+offset to the wrong position. Aligning query to target first took the viral mean
+from 0.16 to 0.39.
+
+The first N rows are not a sample. ProteinGym sorts alignments by score, so the
+top rows are the closest homologs: on R1AB the first 800 rows are 100% identical
+to the query, while the file overall has nine distinct residues per column. Taking
+rows[:N] builds a profile of one clade. Sampling at random from the whole file is
+the fix.
+
+Even after both fixes the method underperforms on the smallest proteins, where the
+alignment is 40-60 residues and has no room for family-specific signal; VG08_BPP22
+and VRPI_BPT7 are both in that group and both go the wrong way.
 """
 
 import argparse

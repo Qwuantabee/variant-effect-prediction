@@ -20,6 +20,28 @@ Outputs:
     results/full/<model>.jsonl          per-assay rows, one JSON object per line
     results/full/<model>_per_assay.csv  same, as a table
     results/full/<model>_summary.csv    aggregation + the official comparison
+
+
+The aggregation rule and the all-mutants finding (moved from the README)
+-------------------------------------------------------------------------
+The headline is not the mean of the per-assay values. ProteinGym's 0.414 for ESM-2
+650M sits 0.024 below the plain mean of its own per-assay column, and a
+reimplementation that reports the plain mean looks broken next to the paper even
+when every individual assay is right to three decimals. The rule is two-staged, and
+it was found by fitting it against the published subgroup columns rather than
+guessing: (1) within a group, average the per-assay Spearman across assays sharing
+a UniProt id, otherwise BLAT_ECOLX counts three times and SPIKE_SARS2 twice; (2)
+average the five functional categories with equal weight, so the protein families
+that happen to have many assays do not dominate. With that, all twelve published
+subgroup columns (five selection types, four taxa, three MSA-depth bins) reproduce
+to within 0.0005, and so does every published headline from 8M to 15B.
+tests/test_aggregate.py checks each of these against the published table.
+
+The published numbers are computed over all mutants, not single substitutions. On
+A4_HUMAN_Seuma_2022 (14,811 variants of which only 796 are single substitutions)
+scoring everything gives 0.431 against a published 0.431, while restricting to
+singles gives 0.498. Restricting to singles would have looked like a defensible
+choice and would have put 20 of the 217 assays off by up to 0.10.
 """
 
 import argparse

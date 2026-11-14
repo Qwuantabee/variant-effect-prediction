@@ -25,6 +25,29 @@ Writes results/esm2_scaling/{scaling,paired_tests,subgroups}.csv.
 
 Run:
     python scripts/analyse_esm2_scaling.py
+
+
+Why the 3B checkpoint is a trade, not a regression (moved from the README)
+---------------------------------------------------------------------------
+A model that had simply gotten worse would move every split down. Instead the
+split is by what each assay measures. The assays that probe a protein's own
+stability get worse; the assays that probe how it behaves in a host get better, and
+the viral taxon improves by the largest margin of any split. The 15B model continues
+along the same axis rather than reversing it. That is the shape of an objective
+mismatch, not a scaling failure. ESM-2 is trained to predict masked residues across
+UniRef, a proxy for "what sequence would thrive in the organisms UniRef samples",
+which is closer to organismal fitness than to whether a purified protein folds.
+Scaling the model sharpens whatever the objective actually rewards. On stability
+assays the extra capacity adds nothing and mildly overfits; on host-context assays
+it helps. The practical implication is the boring one: 650M is the right default for
+stability and binding work, and if the target is a virus, neither 650M nor 3B is the
+right tool; the alignment method is, by a wide margin.
+
+The 3B checkpoint is about 12 GB and was not downloaded, so the local measurement
+stops at 650M. Each local step up is real (the paired differences are significant at
+every step) but the third step buys a quarter of what the first did: by 650M the
+model is near the plateau for this benchmark, so a 2.3x parameter increase at 3B
+cannot be expected to help much.
 """
 
 import sys
