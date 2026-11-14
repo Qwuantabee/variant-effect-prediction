@@ -643,6 +643,22 @@ pytest -m "not slow"        # 259 tests, no model needed
 pytest -m slow              # downloads an 8M checkpoint, ~30 MB
 ```
 
+**The assay data is not committed** (`data/` is git-ignored, ~50 MB of
+ProteinGym CSVs). On a fresh clone the nine tests that read real assays fail
+with "assays not downloaded" rather than skipping, because a missing input you
+did not ask to miss is a failure, not a pass. Either fetch the data
+(`from variant_effect import data; data.ensure_assays()`) or run the suite on a
+machine without it using the explicit escape:
+
+```
+VE_ALLOW_MISSING_DATA=1 pytest -m "not slow"    # 6 fail, 3 skip on an empty data/
+```
+
+Even with the escape some result-consuming tests still fail, because they read
+committed `results/` artefacts that are only meaningful next to the assays they
+were computed from. The suite is green on the machine that produced the results
+(274 passed) and that is the state the numbers below refer to.
+
 Two environment notes, both of which cost time to work out:
 
 - `HF_HUB_OFFLINE=1` after the first download. Without it, `from_pretrained`
@@ -797,13 +813,16 @@ reversed what I expected. Details in the sections above and in
 
 What is still open:
 
-- ~~The top-10 recall failure is not explained by burial~~ — done. It is the
-  assay's noise floor, not the model: `scripts/run_topk_analysis.py`. Truth
-  against truth across 37 replicate assay pairs gives a median top-10 recall
-  of 0.35 against the model's 0.32, and on 29 of those pairs the top decile's
-  entire spread is smaller than one measurement's error. The heterogeneity
-  candidate does not survive: decile shape does not predict top-10 recall
-  across the 217 assays
+- ~~The top-10 recall failure is not explained by burial~~ — done. The decile is
+  hard to resolve rather than unrankable: `scripts/run_topk_analysis.py` measures
+  truth against truth across 37 replicate assay pairs and gets a median top-10
+  recall of 0.35 against the model's 0.32, but those are a median over 37 pairs
+  and a mean over 217 assays, so they are not comparable — see the 0.326 over the
+  46 assays that have a replicate, and the section above for why 0.35 is
+  agreement between two noisy readings rather than a ceiling. On 29 of those
+  pairs the top decile's entire spread is smaller than one measurement's error.
+  The heterogeneity candidate does not survive: decile shape does not predict
+  top-10 recall across the 217 assays
 - ~~Nothing here covers indels, and the clinical benchmark is not touched~~ —
   declared out of scope in "What this work does not cover", with the reason
   and a measurement of what is actually on disk
