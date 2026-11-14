@@ -86,7 +86,10 @@ def test_no_alignment_families_have_a_larger_gap_than_alignment_families():
     families = rfa.family_table(per_method)
     sep = rfa.gap_separation(per_method, families)
     assert sep["median_gap_no_alignment"] < sep["median_gap_alignment"] - 0.05
-    assert sep["p_no_alignment_worse"] < 0.01
+    # The unit that varies is the family (6 vs 8), not the checkpoint: the exact
+    # family-level p is the evidence. The checkpoint-level p_no_alignment_worse
+    # (23 vs 19, pseudo-replicated) is no longer asserted.
+    assert sep["p_family_level_exact"] < 0.05
 
 
 def test_separation_needs_both_groups():
