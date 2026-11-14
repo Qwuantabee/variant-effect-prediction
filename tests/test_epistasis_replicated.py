@@ -34,6 +34,19 @@ import run_epistasis_replicated as rep  # noqa: E402
 from conftest import require  # noqa: E402
 
 
+def _require_assays(*assays):
+    """Fail, or skip under VE_ALLOW_MISSING_DATA=1, when an assay CSV is absent.
+
+    Without this the loader raises FileNotFoundError instead of skipping, so a
+    machine that deliberately does not hold the ProteinGym download got six red
+    tests and an escape hatch that did not work. The guard is on the assay the
+    test actually reads, not on 'some CSV exists', because a partial download
+    satisfies the loose check and then fails deeper in.
+    """
+    missing = [a for a in assays if not (rep.data.ASSAY_DIR / f"{a}.csv").exists()]
+    require(not missing, f"assays not downloaded: {', '.join(missing)}")
+
+
 def _planted(seed=0, n_single=2000, n_double=2000, gap=0.0):
     rng = np.random.default_rng(seed)
     truth_s = rng.normal(0, 1, n_single)
@@ -241,6 +254,7 @@ def test_loader_finds_the_shared_variant_set(key, protein, min_shared):
     """These are the counts the whole design rests on, so they are re-derived
     from the CSV rather than trusted from a manifest."""
     pair = rep.PAIRS[key]
+    _require_assays(pair["assay_a"], pair["assay_b"])
     assert pair["protein"] == protein
     df = rep.load_pair(pair["assay_a"], pair["assay_b"])
     assert len(df) >= min_shared
@@ -254,6 +268,7 @@ def test_loader_never_emits_triples():
     the comparison is doubles against singles, and a triple in the double
     stratum would conflate k with the target."""
     pair = rep.PAIRS["spg1"]
+    _require_assays(pair["assay_a"], pair["assay_b"])
     df = rep.load_pair(pair["assay_a"], pair["assay_b"])
     assert (df["n_sub"] <= 2).all()
 
@@ -261,6 +276,8 @@ def test_loader_never_emits_triples():
 def test_shared_sets_are_disjoint_between_proteins():
     """The two proteins are reported separately and never pooled; sharing a
     variant string between them would mean the pooling boundary was wrong."""
+    _require_assays(*(rep.PAIRS["rask"][k] for k in ("assay_a", "assay_b")),
+                    *(rep.PAIRS["spg1"][k] for k in ("assay_a", "assay_b")))
     a = set(rep.load_pair(**{k: rep.PAIRS["rask"][k]
                              for k in ("assay_a", "assay_b")})["mutant"])
     b = set(rep.load_pair(**{k: rep.PAIRS["spg1"][k]

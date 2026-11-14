@@ -148,6 +148,17 @@ def test_ceiling_script_finds_pairs_that_share_enough_variants():
     require(data_dir.exists() and any(data_dir.glob("*.csv")), "ProteinGym assays not downloaded")
 
     ref = pd.read_csv(root / "data" / "DMS_substitutions.csv")
+    # The reference table ships with the repo, so the check above can pass on a
+    # machine that has the table but none of the assay CSVs it points at. Guard
+    # on the assays the pair finder will actually open, or the test degrades
+    # into 'assert 0 >= 20' with no explanation.
+    from variant_effect import data as ve_data
+    wanted = ref["DMS_id"].astype(str).tolist()
+    present = [a for a in wanted if (ve_data.ASSAY_DIR / f"{a}.csv").exists()]
+    require(len(present) >= 20,
+            f"only {len(present)} of {len(wanted)} assay CSVs present; "
+            "the pair finder needs the downloaded assays, not just the table")
+
     pairs = rta.replicate_pairs(ref)
     assert len(pairs) >= 20
     assert all(p["n_shared"] >= rta.MIN_SHARED for p in pairs)
