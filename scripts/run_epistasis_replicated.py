@@ -134,6 +134,21 @@ damages, and a sum of two negative log-odds is a good damage detector. The
 model-free residual (run_epistasis_test.py) shows non-additivity exists in the
 data (an upper bound on it), and the independent-site score does not demonstrably
 lose accuracy to it.
+
+
+Shared-variant counts and the pair labels (moved from the README)
+------------------------------------------------------------------
+RASK shares 23,072 variants (20,124 doubles, 2,948 singles). SPG1 shares 2,167 on
+the canonical join (2,091 doubles, 76 singles); the exact-string join gave 1,458
+(1,382 doubles). F7YBW8_MESOW shares zero variants on either join, so it offers no
+pooled target and is skipped by name in the manifest. SPG1_STRSG (Olson 2014 vs Wu
+2016) is the same biology on two scales that are monotone but not affinely related
+(on the 76 singles the two assays' Spearman is 0.998 and the Pearson of their
+z-scores is 0.805), so a z-pool averages unlike scales and Spearman-Brown is
+withheld there too. RASK_HUMAN (Weng 2022, abundance vs binding to DARPin K55) is
+on the repo's own different-quantity list and the reference table labels the two
+assays Expression and Binding, so the Spearman-Brown "pooled reliability" is
+withheld for it and the pooled target is a pseudo-quantity.
 """
 
 import argparse
