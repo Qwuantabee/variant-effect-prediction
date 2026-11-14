@@ -17,9 +17,13 @@ that no predictor can beat:
 
   2. **The noise floor.** sigma = sd(a - b)/sqrt(2) estimates one
      measurement's error from a pair. Combined with the observed variance of a
-     subset, it gives that subset's reliability, `1 - sigma^2/var`. Reliability
-     is the attenuation limit on any correlation computed inside that subset:
-     a subset with reliability 0.1 cannot be ranked, by anything.
+     subset, it gives that subset's reliability, `1 - sigma^2/var`. That is the
+     attenuation limit on a correlation inside a subset chosen INDEPENDENTLY of
+     the noise. For the top decile of the same assay it is not a limit at all:
+     selection on a noisy y shrinks the subset's variance, so the formula can be
+     negative while the latent value in the subset is still rankable
+     (scripts/sim_pooling_controls.py). Read it as "the decile spread compared
+     with one measurement's noise", not as "cannot be ranked by anything".
 
   3. **The decile's shape.** sd(top 10%) / sd(whole assay), and the share of
      the assay's range the decile spans. A decile that spans a third of the
@@ -63,11 +67,9 @@ MIN_SHARED = 200
 def _scores(assay_id):
     """DMS_score per mutant for one assay, or None if it will not load."""
     try:
-        d = pd.read_csv(data.ASSAY_DIR / f"{assay_id}.csv",
-                        usecols=["mutant", "DMS_score"])
+        return data.canonical_scores(assay_id)
     except (FileNotFoundError, ValueError, pd.errors.EmptyDataError):
         return None
-    return d.set_index("mutant")["DMS_score"]
 
 
 def replicate_pairs(reference):

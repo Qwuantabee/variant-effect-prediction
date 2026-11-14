@@ -16,6 +16,7 @@ import io
 import zipfile
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import requests
 
@@ -131,6 +132,40 @@ def ensure_assays(assay_ids=None):
             with zf.open(names[key]) as src:
                 (ASSAY_DIR / key).write_bytes(src.read())
             print(f"  extracted {key}", flush=True)
+
+
+def canonical_scores(assay_id):
+    """Finite DMS_score per variant, keyed by the CANONICAL mutant string.
+
+    Joining two assays on the raw mutant column silently drops every
+    multi-substitution variant that the two labs wrote in different orders (a
+    709-double loss on the SPG1 Olson/Wu pair; no other of the 37 repo pairs is
+    affected). The key here is resampling.canonical_mutant: substitutions sorted
+    by position. A variant listed twice after canonicalisation keeps its FIRST
+    row; the number dropped is in the returned Series' attrs['duplicates_dropped'].
+    An unparseable notation keeps its raw string (counted in
+    attrs['unparseable']).
+    """
+    from .resampling import canonical_mutant
+    d = pd.read_csv(ASSAY_DIR / f"{assay_id}.csv",
+                    usecols=["mutant", "DMS_score"])
+    d = d[np.isfinite(d["DMS_score"])]
+    keys, bad = [], 0
+    for m in d["mutant"]:
+        if ":" not in m:
+            keys.append(m)
+            continue
+        try:
+            keys.append(canonical_mutant(m))
+        except ValueError:
+            keys.append(m)
+            bad += 1
+    s = pd.Series(d["DMS_score"].to_numpy(), index=pd.Index(keys, name="mutant"))
+    dup = int(s.index.duplicated().sum())
+    s = s[~s.index.duplicated(keep="first")]
+    s.attrs["duplicates_dropped"] = dup
+    s.attrs["unparseable"] = bad
+    return s
 
 
 def load_assay(assay_id, reference=None, singles_only=True):

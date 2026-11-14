@@ -26,9 +26,20 @@ measurement within a subset of variants is then
 
     rel = 1 - sigma_noise^2 / var(observed within subset)
 
-and rel is the ceiling on any *linear* correlation between two independent
-measurements of that subset -- the attenuation limit. A subset with rel near
-zero cannot be ranked by anything, no matter how good the predictor.
+and rel is the ceiling on the correlation between two independent
+measurements of that subset ONLY WHEN THE SUBSET IS CHOSEN INDEPENDENTLY OF THE
+MEASUREMENT ERROR (a random subset, a protein region, a variant class). It is
+NOT valid for a decile chosen as the top of the very assay it is then computed
+on. Selecting on a noisy y keeps the variants whose noise happens to be high:
+the subset's observed variance shrinks (regression to the mean) while sigma_noise
+(estimated on the whole assay) does not, so the formula can go negative
+while the latent value inside the subset still varies and two assays still
+correlate within it. scripts/sim_pooling_controls.py shows this: with the real
+median noise sd the formula averages -1.14 over 400 simulated assays (negative in
+all 400) while the latent variance inside the decile is 0.298 in the same units
+and corr(A, B) inside the decile is +0.323. So a decile "reliability" at or
+below zero must not be read as "cannot be ranked by anything"; it measures only
+how much of the subset's spread is smaller than one measurement's noise.
 """
 
 import numpy as np
