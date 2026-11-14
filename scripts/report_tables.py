@@ -541,11 +541,14 @@ def latent_truth_table():
     out = pd.DataFrame(rows, columns=["pooled-truth measurement", "value"])
     tail = ""
     if w_t:
-        tail = ("\n\nA paired control: an assay scored against the pooled "
-                "target gains "
-                f"{f(w_t.get('median_diff'))} over truth-against-truth on the "
-                f"same pairs (Wilcoxon p = {pv(w_t.get('p'))}). "
-                "That gain is the attenuation 0.350 was made of.")
+        # the assay row is ~1 by construction (the assay is half the target),
+        # so this control measures how much attenuation 0.350 contained; it is
+        # not a score a model could be expected to match
+        tail = ("\n\nPaired control, same pairs: an assay scored against the "
+                f"pooled target gains {f(w_t.get('median_diff'))} over "
+                "truth-against-truth "
+                f"(Wilcoxon p {pv(w_t.get('p'))}). That gain is the "
+                "attenuation 0.350 was made of.")
     return fmt_table(out) + tail
 
 

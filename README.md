@@ -444,7 +444,7 @@ mean anywhere in it.
 | model mean top-10 recall, all 217 assays | 0.323 |
 | model mean top-10 recall, the 46 assays that have a replicate | 0.326 |
 
-A paired control: an assay scored against the pooled target gains +0.475 over truth-against-truth on the same pairs (Wilcoxon p = < 0.0001). That gain is the attenuation 0.350 was made of.
+Paired control, same pairs: an assay scored against the pooled target gains +0.475 over truth-against-truth (Wilcoxon p < 0.0001). That gain is the attenuation 0.350 was made of.
 <!-- END GENERATED: latent_truth -->
 
 The attenuation the audit predicted is real and measured: scored against
@@ -452,10 +452,9 @@ the pooled target instead of against one assay, an assay gains a median of
 +0.475 top-10 recall on the same pairs (Wilcoxon p < 0.0001); it is not an
 independent predictor, it is half the target, so read that as a measurement of
 how much attenuation 0.350 contained and not as a benchmark a model could
-match. That gain is
-what 0.350 was made of, and it is why 0.350 cannot be an upper bound -- the
-same "predictor" beats it by nearly half a top-10 as soon as the target stops
-being one noisy assay.
+match. It is also the direct demonstration that 0.350 cannot be an upper
+bound: the same "predictor" beats it by nearly half a top-10 as soon as the
+target stops being one noisy assay.
 
 What the model does with the better target is narrower. Its top-10 recall
 against the pool is a median of 0.250, the same as against a single assay: a

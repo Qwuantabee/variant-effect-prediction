@@ -393,12 +393,16 @@ def summarise(df, subset_name):
     # the model most, which limits how the gain may be read
     m = d[["split_half_reliability", "recall_gain_pooled_vs_single",
            "spearman_model_to_pooled", "spearman_model_to_single"]].dropna()
-    if len(m) >= 8:
+    if len(m) >= 8 and m["recall_gain_pooled_vs_single"].nunique() > 1 \
+            and m["split_half_reliability"].nunique() > 1:
         r_gain, p_gain = stats.spearmanr(
             m["split_half_reliability"], m["recall_gain_pooled_vs_single"])
-        r_spr, p_spr = stats.spearmanr(
-            m["split_half_reliability"],
-            m["spearman_model_to_pooled"] - m["spearman_model_to_single"])
+        spr_gain = m["spearman_model_to_pooled"] - m["spearman_model_to_single"]
+        if spr_gain.nunique() > 1:
+            r_spr, p_spr = stats.spearmanr(
+                m["split_half_reliability"], spr_gain)
+        else:
+            r_spr, p_spr = np.nan, np.nan
         out["gain_vs_reliability"] = {
             "recall_gain_spearman": float(r_gain),
             "recall_gain_p": float(p_gain),
