@@ -263,11 +263,11 @@ larger than any model-to-model difference and is what dominates those SEs:
 <!-- BEGIN GENERATED: scaling_paired -->
 | comparison | mean diff | median diff | SE | paired t p | Wilcoxon p | W/L |
 |---|---|---|---|---|---|---|
-| ESM2 (3B) − ESM2 (650M) | -0.0061 | -0.0090 | +0.0052 | +0.2443 | +0.0223 | 96/118 |
-| ESM2 (15B) − ESM2 (650M) | -0.0130 | -0.0050 | +0.0073 | +0.0790 | +0.0198 | 100/116 |
-| ESM2 (650M) − ESM2 (150M) | +0.0377 | +0.0250 | +0.0062 | +0.0000 | +0.0000 | 152/63 |
-| ESM2 (150M) − ESM2 (35M) | +0.0817 | +0.0400 | +0.0088 | +0.0000 | +0.0000 | 174/41 |
-| ESM2 (15B) − ESM2 (3B) | -0.0069 | +0.0000 | +0.0045 | +0.1299 | +0.4016 | 108/107 |
+| ESM2 (3B) − ESM2 (650M) | -0.0061 | -0.0090 | +0.0052 | 0.2443 | 0.0223 | 96/118 |
+| ESM2 (15B) − ESM2 (650M) | -0.0130 | -0.0050 | +0.0073 | 0.0790 | 0.0198 | 100/116 |
+| ESM2 (650M) − ESM2 (150M) | +0.0377 | +0.0250 | +0.0062 | <0.0001 | <0.0001 | 152/63 |
+| ESM2 (150M) − ESM2 (35M) | +0.0817 | +0.0400 | +0.0088 | <0.0001 | <0.0001 | 174/41 |
+| ESM2 (15B) − ESM2 (3B) | -0.0069 | +0.0000 | +0.0045 | 0.1299 | 0.4016 | 108/107 |
 <!-- END GENERATED: scaling_paired -->
 
 So 3B is slightly but consistently worse on the average assay. The interesting
@@ -873,7 +873,9 @@ range-matched, which is the direction of degradation; but a position bootstrap
 over four clusters is not an interval for anything (the verdict code returns
 insufficient_clusters below 20 positions), and a variant-level bootstrap that
 treats 2,091 doubles on four positions as independent would be worse. The
-range-matched interval excluding zero does not change that. SPG1 neither
+range-matched interval excluding zero does not change that. The top-decile
+recall is 0.250 on the 76 singles (a decile of 76 is k = 8 variants, so 2 of 8)
+against 0.316 on the doubles: a gap of -0.066 [-0.369, +0.520]. SPG1 neither
 supports nor contradicts RASK.
 
 What the run can and cannot say, stated plainly:

@@ -125,6 +125,10 @@ def load_strata(assay_id, cap=2000, seed=0, single_cap=None):
     df = pd.read_csv(data.ASSAY_DIR / f"{assay_id}.csv",
                      usecols=["mutant", "DMS_score"])
     df = df[np.isfinite(df["DMS_score"])].reset_index(drop=True)
+    # A mutant listed twice keeps its FIRST row; the count is recorded on every
+    # returned frame (attrs["duplicates_dropped"]) instead of being silent.
+    n_dup = int(df.duplicated("mutant").sum())
+    df = df.drop_duplicates("mutant", keep="first").reset_index(drop=True)
     df["n_sub"] = df["mutant"].map(n_substitutions)
 
     singles = df[df["n_sub"] == 1]
@@ -154,6 +158,8 @@ def load_strata(assay_id, cap=2000, seed=0, single_cap=None):
     deep = multis[multis["n_sub"] >= 5]
     if len(deep) >= 50:
         strata["nsub5plus"] = deep.reset_index(drop=True)
+    for frame in strata.values():
+        frame.attrs["duplicates_dropped"] = n_dup
     return strata, df
 
 

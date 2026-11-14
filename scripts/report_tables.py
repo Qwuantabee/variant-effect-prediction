@@ -188,8 +188,10 @@ def paired_table():
         "mean diff": d["mean_diff_b_minus_a"],
         "median diff": d["median_diff"],
         "SE": d["se_diff"],
-        "paired t p": d["p_paired_t"],
-        "Wilcoxon p": d["p_wilcoxon"],
+        "paired t p": [("<0.0001" if p < 1e-4 else f"{p:.4f}")
+                       for p in d["p_paired_t"]],
+        "Wilcoxon p": [("<0.0001" if p < 1e-4 else f"{p:.4f}")
+                       for p in d["p_wilcoxon"]],
         "W/L": d["b_wins"].astype(str) + "/" + d["a_wins"].astype(str),
     })
     return fmt_table(out, floatfmt="{:+.4f}")

@@ -211,3 +211,22 @@ def test_position_matched_control_says_when_it_binds(synthetic_run):
     if r["n_multi_positions"] >= r["n_single_positions"]:
         assert not r["pos_matched_binds"]
         assert r["pos_matched_n"] == 300
+
+
+
+def test_load_strata_keeps_the_first_duplicate_and_reports_the_count(
+        tmp_path, monkeypatch):
+    """C12: a mutant listed twice used to enter the strata twice, silently."""
+    monkeypatch.setattr(et.data, "ASSAY_DIR", tmp_path)
+    rows = [(f"A{p}V", float(p)) for p in range(1, 61)]
+    rows.append(("A1V", 99.0))                     # duplicate of the first
+    rows += [(f"A{p}V:G{p + 1}L", float(p)) for p in range(1, 60)]
+    pd.DataFrame(rows, columns=["mutant", "DMS_score"]).to_csv(
+        tmp_path / "DUP.csv", index=False)
+    strata, full = et.load_strata("DUP", cap=500)
+    assert strata["single"]["mutant"].is_unique
+    first = strata["single"].loc[strata["single"]["mutant"] == "A1V",
+                                 "DMS_score"].iloc[0]
+    assert first == 1.0
+    assert all(f.attrs["duplicates_dropped"] == 1 for f in strata.values())
+    assert full["mutant"].is_unique
