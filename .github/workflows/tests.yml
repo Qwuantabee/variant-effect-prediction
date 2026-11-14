@@ -1,0 +1,54 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      # The ProteinGym assays are NOT committed (data/ is git-ignored, ~400 MB),
+      # so CI runs with the documented escape and skips the tests that need the
+      # real assays. Measured on a checkout with no data/ at all and with the
+      # guards from 2723ac9 in place: 251 passed, 8 skipped.
+      #
+      # The suite is fully green on a machine that holds the data (274 passed);
+      # this job deliberately proves less, and says so rather than pretending.
+      #
+      # -m "not slow" drops the tests needing a model download and a GPU.
+      - name: tests (no dataset, skips the assay-dependent tests)
+        env:
+          VE_ALLOW_MISSING_DATA: "1"
+          HF_HUB_OFFLINE: "1"
+        run: python -m pytest tests/ -q -m "not slow"
+
+      - name: findings figures regenerate from committed artefacts
+        # The --only findings group reads results/ CSVs and needs no model, so it
+        # is cheap enough for CI. A figure whose input stopped being committed
+        # fails here instead of silently going stale in the README.
+        run: |
+          python scripts/make_figures.py --only findings
+          git diff --exit-code --stat -- figures/ || {
+            echo "figures/ changed when regenerated from committed results.";
+            echo "Commit the regenerated PNGs, or the artefacts drifted.";
+            exit 1;
+          }
