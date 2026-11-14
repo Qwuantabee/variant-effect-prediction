@@ -1,0 +1,2 @@
+assay,n_sub,n,spearman,top_decile_recall,score_sd,truth_sd
+GRB2_HUMAN_Faure_2021,2,2000,0.6509691803149854,0.43,6.0308338348849775,0.45947484867222366

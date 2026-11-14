@@ -1,0 +1,17 @@
+{
+  "assays": [
+    "SPG1_STRSG_Olson_2014",
+    "HIS7_YEAST_Pokusaeva_2019",
+    "PHOT_CHLRE_Chen_2023",
+    "GRB2_HUMAN_Faure_2021",
+    "GFP_AEQVI_Sarkisyan_2016"
+  ],
+  "excluded_on_cost": [
+    "CAPSD_AAV2S_Sinai_2021"
+  ],
+  "cap_per_mutation_class": 2000,
+  "seed": 0,
+  "top_frac": 0.1,
+  "model": "facebook/esm2_t33_650M_UR50D",
+  "scheme": "masked marginals, independent-site sum"
+}
