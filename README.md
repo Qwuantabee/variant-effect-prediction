@@ -19,8 +19,8 @@ interesting part.
 - **(b) It does not pick the top ten better, not significantly.** Top-10 recall
   gains p = 0.0655 / 0.0710 / 0.102 (pair level) and 0.102 / 0.117 / 0.167
   (protein level, the primary test); none of the six crosses 0.05, nor does any
-  of the 18 tests over subsets (smallest p = 0.059). The Spearman gain is
-  p < 0.012 in all 18.
+  of the 18 tests that also cover the same-quantity and reliable-pair subsets
+  (smallest p = 0.059). The Spearman gain is p < 0.012 in all 18.
 - **(c) The model is not shown to match truth-vs-truth, or to fall short of it.**
   On 17 of 32 pairs its top-10 recall is below the agreement of the pair's two
   assays, on 14 above, on 1 level; the shortfall is not significant (p = 0.146 /
@@ -31,10 +31,11 @@ interesting part.
   (excludes zero) when the 20,124 doubles are resampled as independent variants
   and [−0.192, +0.017] (includes zero) when the 187 positions are resampled.
 
-Three more earlier claims did not survive the review and are corrected below:
-matching the fitness range removes most of the singles-versus-multi gap (figure
-e), HIS7's "epistatic" residual exceeds the doubles' own total variance (figure
-g), and the viral-gap family test is p = 0.0213, not 0.00047 (figure f).
+Three more things the review changed, each with its own figure below: matching the
+fitness range removes most of the singles-versus-multi gap (figure e); HIS7's
+"epistatic" residual is larger than the doubles' own total variance, so it is mostly
+noise (figure g); and the viral-gap family test is p = 0.0213, not the 0.00047 that
+counting checkpoints gave (figure f).
 
 ## Does the implementation actually work
 
@@ -430,8 +431,8 @@ substitutions k rises. On PHOT it is +0.724 at k = 2 and still +0.682 at k = 14;
 *rises* from +0.157 to +0.732 (k = 2 to 12). A multi-mutant accumulates damages, so it is
 easier to identify as broken, the same easiness the burial analysis found: independent
 summation succeeds because the task at the top of a DMS assay is detecting damage, not
-predicting fitness. Per-assay intervals, the 5+ stratum like for like and the
-singles-versus-doubles-only gaps are in the `run_epistasis_test.py` docstring.
+predicting fitness. Per-assay intervals, the 5+ stratum and the singles-versus-doubles gaps
+are in the `run_epistasis_test.py` docstring.
 
 **Epistasis itself is present and large; that is a separate, model-free question.** For
 every double whose two singles were also assayed, the additive prediction is the sum of
@@ -478,10 +479,9 @@ independent experiments of one quantity. RASK_HUMAN (Weng 2022, abundance vs bin
 DARPin K55) is on the repo's different-quantity list (reference table: Expression vs
 Binding), so Spearman-Brown is withheld and the pooled target is a pseudo-quantity.
 SPG1_STRSG (Olson 2014 vs Wu 2016) is the same biology on monotone but not affinely
-related scales (on the 76 singles Spearman 0.998, Pearson of the z-scores 0.805), so a
-z-pool averages unlike scales. RASK shares 23,072 variants (20,124 doubles, 2,948
-singles), SPG1 2,167 on the canonical join (2,091 doubles, 76 singles; 1,458 on the
-exact-string join, 1,382 doubles); F7YBW8_MESOW shares none and is skipped by name in the manifest.
+related scales, so a z-pool averages unlike scales. RASK shares 20,124 doubles and 2,948
+singles, SPG1 2,091 doubles and 76 singles (join counts, the scale check and the skipped
+third protein are in the `run_epistasis_replicated.py` docstring).
 **Every interval is a position bootstrap** (positions drawn with replacement, variants
 weighted by the product of their positions' multiplicities, one draw shared by both
 strata): RASK's 20,124 doubles sit on 187 positions, so an interval that resamples
