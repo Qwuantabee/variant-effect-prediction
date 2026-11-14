@@ -17,7 +17,7 @@ from conftest import require
 ROOT = Path(__file__).resolve().parent.parent
 PAGE = ROOT / "RESULTS.md"
 PAGE_NAMES = ("topk_ceiling", "latent_truth", "sim_controls", "epistasis",
-              "family_viral_gap")
+              "family_viral_gap", "scaling_paired", "scaling_subgroups")
 
 
 def _report_tables():

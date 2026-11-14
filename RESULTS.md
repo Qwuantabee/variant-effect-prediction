@@ -139,6 +139,37 @@ share.
 | SPG1_STRSG_Olson_2014 | +0.276 | +0.307 | -0.031 | -0.002 | 0.249 |
 <!-- END GENERATED: epistasis -->
 
+## ESM-2 scaling, published
+
+`results/esm2_scaling/` from `scripts/analyse_esm2_scaling.py`. The paired test of
+each checkpoint against 650M over the 217 assays, and the change by what the assay
+measures (the ten splits drawn in figure h).
+
+<!-- BEGIN GENERATED: scaling_paired -->
+| comparison | mean diff | median diff | SE | paired t p | Wilcoxon p | W/L |
+|---|---|---|---|---|---|---|
+| ESM2 (3B) − ESM2 (650M) | -0.0061 | -0.0090 | +0.0052 | 0.2443 | 0.0223 | 96/118 |
+| ESM2 (15B) − ESM2 (650M) | -0.0130 | -0.0050 | +0.0073 | 0.0790 | 0.0198 | 100/116 |
+| ESM2 (650M) − ESM2 (150M) | +0.0377 | +0.0250 | +0.0062 | <0.0001 | <0.0001 | 152/63 |
+| ESM2 (150M) − ESM2 (35M) | +0.0817 | +0.0400 | +0.0088 | <0.0001 | <0.0001 | 174/41 |
+| ESM2 (15B) − ESM2 (3B) | -0.0069 | +0.0000 | +0.0045 | 0.1299 | 0.4016 | 108/107 |
+<!-- END GENERATED: scaling_paired -->
+
+<!-- BEGIN GENERATED: scaling_subgroups -->
+| split | 650M | 3B | 15B | 3B − 650M | 15B − 650M |
+|---|---|---|---|---|---|
+| Function_Stability | +0.523 | +0.509 | +0.488 | -0.014 | -0.035 |
+| High_MSA_depth | +0.513 | +0.485 | +0.467 | -0.028 | -0.046 |
+| Function_Binding | +0.337 | +0.321 | +0.317 | -0.016 | -0.020 |
+| Function_Activity | +0.425 | +0.417 | +0.405 | -0.008 | -0.020 |
+| Taxa_Human | +0.457 | +0.442 | +0.432 | -0.015 | -0.025 |
+| Taxa_Prokaryote | +0.458 | +0.458 | +0.436 | +0.000 | -0.022 |
+| Function_Expression | +0.415 | +0.403 | +0.405 | -0.012 | -0.010 |
+| Medium_MSA_depth | +0.409 | +0.423 | +0.422 | +0.014 | +0.013 |
+| Function_OrganismalFitness | +0.368 | +0.378 | +0.387 | +0.010 | +0.019 |
+| Taxa_Virus | +0.261 | +0.294 | +0.333 | +0.033 | +0.072 |
+<!-- END GENERATED: scaling_subgroups -->
+
 ## Viral gap by method family
 
 `results/families/` from `scripts/run_family_analysis.py`. The 14 families behind figure f.

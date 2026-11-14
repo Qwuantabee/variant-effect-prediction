@@ -35,7 +35,7 @@ RESULTS_PAGE = ROOT / "RESULTS.md"
 # Tables that are written to RESULTS.md instead of the README. The replicated-
 # epistasis table is NOT here: a test compares it with the README, byte for byte.
 PAGE_TABLES = ("topk_ceiling", "latent_truth", "sim_controls", "epistasis",
-               "family_viral_gap")
+               "family_viral_gap", "scaling_paired", "scaling_subgroups")
 BEGIN = "<!-- BEGIN GENERATED: {} -->"
 END = "<!-- END GENERATED: {} -->\n"
 
