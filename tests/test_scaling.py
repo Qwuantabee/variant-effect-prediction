@@ -18,6 +18,7 @@ import pytest
 from scipy import stats
 
 from variant_effect import aggregate, data
+from conftest import require  # noqa: E402
 
 SIZES = ["ESM2 (8M)", "ESM2 (35M)", "ESM2 (150M)", "ESM2 (650M)",
          "ESM2 (3B)", "ESM2 (15B)"]
@@ -132,8 +133,7 @@ def test_local_curve_rises_to_650m_before_plateauing():
     from pathlib import Path
     path = (Path(__file__).resolve().parents[1] / "results" / "esm2_scaling"
             / "local_curve.csv")
-    if not path.exists():
-        pytest.skip("local scaling curve has not been run")
+    require(path.exists(), "local scaling curve has not been run")
     d = pd.read_csv(path)
     means = d.groupby("model")["spearman"].mean()
     for order in (["8M", "35M", "150M", "650M"],):

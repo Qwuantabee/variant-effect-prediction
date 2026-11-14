@@ -183,6 +183,7 @@
       "n_singles": 2948,
       "n_doubles": 20124,
       "target_note": "reliability not defined: the two assays are not parallel measures of one quantity",
+      "n_position_clusters": 187,
       "target": "pooled_rank",
       "range_matched_gap": 0.030892692062091998,
       "range_matched_ci": [
@@ -202,6 +203,7 @@
       "n_singles": 2948,
       "n_doubles": 20124,
       "target_note": "reliability not defined: the two assays are not parallel measures of one quantity",
+      "n_position_clusters": 187,
       "target": "pooled_z",
       "range_matched_gap": 0.01235445022538112,
       "range_matched_ci": [
@@ -221,6 +223,7 @@
       "n_singles": 2948,
       "n_doubles": 20124,
       "target_note": "reliability not defined: the two assays are not parallel measures of one quantity",
+      "n_position_clusters": 187,
       "target": "assay_a",
       "range_matched_gap": 0.0025581259285291646,
       "range_matched_ci": [
@@ -240,6 +243,7 @@
       "n_singles": 2948,
       "n_doubles": 20124,
       "target_note": "reliability not defined: the two assays are not parallel measures of one quantity",
+      "n_position_clusters": 187,
       "target": "assay_b",
       "range_matched_gap": -0.009298416142509147,
       "range_matched_ci": [
@@ -250,7 +254,7 @@
       "pair_note": "NOT A REPLICATE PAIR: hand-curated DIFFERENT_QUANTITY list; reference coarse_selection_type differs: Expression vs Binding"
     },
     "SPG1_STRSG": {
-      "state": "not_distinguishable",
+      "state": "insufficient_clusters",
       "gap_spearman": 0.1370949288835645,
       "gap_ci": [
         -0.07464160538786063,
@@ -259,17 +263,18 @@
       "n_singles": 76,
       "n_doubles": 2091,
       "target_note": "reliability not defined: the two assays are not parallel measures of one quantity",
+      "n_position_clusters": 4,
       "target": "pooled_rank",
       "range_matched_gap": 0.2263941404423494,
       "range_matched_ci": [
         0.09138103562855776,
         0.4646797474653168
       ],
-      "range_matched_state": "degrades",
+      "range_matched_state": "insufficient_clusters",
       "pair_note": "NOT A REPLICATE PAIR: different scale: lnW (Olson 2014) vs Fitness (Wu 2016)"
     },
     "SPG1_STRSG|pooled_z": {
-      "state": "not_distinguishable",
+      "state": "insufficient_clusters",
       "gap_spearman": 0.1368924010227341,
       "gap_ci": [
         -0.07127872256195097,
@@ -278,17 +283,18 @@
       "n_singles": 76,
       "n_doubles": 2091,
       "target_note": "reliability not defined: the two assays are not parallel measures of one quantity",
+      "n_position_clusters": 4,
       "target": "pooled_z",
       "range_matched_gap": 0.23360599028419538,
       "range_matched_ci": [
         0.10534845492141931,
         0.47548575508864716
       ],
-      "range_matched_state": "degrades",
+      "range_matched_state": "insufficient_clusters",
       "pair_note": "NOT A REPLICATE PAIR: different scale: lnW (Olson 2014) vs Fitness (Wu 2016)"
     },
     "SPG1_STRSG|assay_a": {
-      "state": "not_distinguishable",
+      "state": "insufficient_clusters",
       "gap_spearman": 0.13321247839713907,
       "gap_ci": [
         -0.08736101678619687,
@@ -297,17 +303,18 @@
       "n_singles": 76,
       "n_doubles": 2091,
       "target_note": "reliability not defined: the two assays are not parallel measures of one quantity",
+      "n_position_clusters": 4,
       "target": "assay_a",
       "range_matched_gap": 0.20313259369196013,
       "range_matched_ci": [
         0.07269782050897566,
         0.4569191287300312
       ],
-      "range_matched_state": "degrades",
+      "range_matched_state": "insufficient_clusters",
       "pair_note": "NOT A REPLICATE PAIR: different scale: lnW (Olson 2014) vs Fitness (Wu 2016)"
     },
     "SPG1_STRSG|assay_b": {
-      "state": "not_distinguishable",
+      "state": "insufficient_clusters",
       "gap_spearman": 0.15288742633688118,
       "gap_ci": [
         -0.05720844592231575,
@@ -316,13 +323,14 @@
       "n_singles": 76,
       "n_doubles": 2091,
       "target_note": "reliability not defined: the two assays are not parallel measures of one quantity",
+      "n_position_clusters": 4,
       "target": "assay_b",
       "range_matched_gap": 0.2751207768365608,
       "range_matched_ci": [
         0.13544985527557513,
         0.6284313614048643
       ],
-      "range_matched_state": "degrades",
+      "range_matched_state": "insufficient_clusters",
       "pair_note": "NOT A REPLICATE PAIR: different scale: lnW (Olson 2014) vs Fitness (Wu 2016)"
     }
   }

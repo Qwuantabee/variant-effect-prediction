@@ -293,20 +293,30 @@ def family_gap_table():
 
 
 def family_separation_text():
+    """The family-level exact test, with the checkpoint-level number labelled
+    as the descriptive, pseudo-replicated thing it is."""
     path = ROOT / "results" / "families" / "family_separation.csv"
     if not path.exists():
         return None
     d = pd.read_csv(path)
-    if d.empty or not np.isfinite(d["p_no_alignment_worse"].iloc[0]):
+    if d.empty or "p_family_level_exact" not in d.columns \
+            or not np.isfinite(d["p_family_level_exact"].iloc[0]):
         return None
     r = d.iloc[0]
     return (
-        f"Across the {int(r['n_no_alignment'])} checkpoints in families that do "
-        f"not read an alignment, the median viral gap is "
-        f"{r['median_gap_no_alignment']:+.3f}; across the "
-        f"{int(r['n_alignment'])} that do, it is "
-        f"{r['median_gap_alignment']:+.3f} "
-        f"(Mann-Whitney one-sided p={r['p_no_alignment_worse']:.2g})."
+        f"Tested at the level of the family, which is the unit that varies "
+        f"(checkpoints within a family share an architecture and a training "
+        f"set): the {int(r['n_families_no_alignment'])} families that do not "
+        f"read an alignment have a median viral gap of "
+        f"{r['median_family_gap_no_alignment']:+.3f}, the "
+        f"{int(r['n_families_alignment'])} that do have "
+        f"{r['median_family_gap_alignment']:+.3f}; the exact one-sided "
+        f"Mann-Whitney test gives U = {r['mannwhitney_u_family_level']:.0f}, "
+        f"p = {r['p_family_level_exact']:.3f}. Counted per checkpoint "
+        f"({int(r['n_no_alignment'])} versus {int(r['n_alignment'])}) the same "
+        f"test returns p = {r['p_no_alignment_worse']:.2g}, but that number "
+        f"counts one family many times and is shown only so it is not mistaken "
+        f"for the evidence."
     )
 
 
@@ -577,6 +587,16 @@ def latent_truth_table():
     w = allp.get("wilcoxon_model_pooled_minus_single") or {}
     w_r = allp.get("wilcoxon_spearman_pooled_minus_single") or {}
     w_t = allp.get("wilcoxon_assay_to_pooled_minus_truth_vs_truth") or {}
+    pw = allp.get("protein_level_recall_gain") or {}
+    pw_r = allp.get("protein_level_spearman_gain") or {}
+
+    def three(rep):
+        """Wilcoxon (tie-corrected approx) / exact / sign-flip permutation, all
+        shown so no method is picked for the p it gives."""
+        if not rep:
+            return "n/a"
+        return (f"{pv(rep.get('p'))} / {pv(rep.get('p_exact'))} / "
+                f"{pv(rep.get('p_signflip'))}")
 
     rows = [
         ("replicate pairs with >= {} shared variants".format(
@@ -593,20 +613,42 @@ def latent_truth_table():
          f(allp["median_recall_model_to_single"], "{:.3f}")),
         ("median top-10 recall, model against the pooled target",
          f(allp["median_recall_model_to_pooled"], "{:.3f}")),
-        ("median paired gain, model vs pooled minus model vs single",
+        ("PROTEIN level (primary): proteins",
+         f"{pw.get('n_units', 'n/a')}"),
+        ("protein-level median paired gain, top-10 recall",
+         f(pw.get("median_diff"))),
+        ("protein-level proteins better / worse / tied",
+         f"{pw.get('n_better', 'n/a')} / {pw.get('n_worse', 'n/a')} / "
+         f"{pw.get('n_zero', 'n/a')}"),
+        ("protein-level p, top-10 recall (Wilcoxon / exact / sign-flip)",
+         three(pw)),
+        ("pair level (secondary): median paired gain, top-10 recall",
          f(w.get("median_diff"))),
-        ("pairs where pooling helped the model",
-         f"{w.get('n_pairs_pooled_better', 0)} of {allp['n_pairs']}"),
-        ("paired Wilcoxon p, top-10 recall", pv(w.get("p"))),
+        ("pair-level pairs better / worse / tied",
+         f"{w.get('n_better', 0)} / {w.get('n_worse', 0)} / "
+         f"{w.get('n_zero', 0)} of {allp['n_pairs']}"),
+        ("pair-level p, top-10 recall (Wilcoxon / exact / sign-flip)",
+         three(w)),
         ("median Spearman, model against one assay",
          f(allp["median_spearman_model_to_single"], "{:.3f}")),
         ("median Spearman, model against the pooled target",
          f(allp["median_spearman_model_to_pooled"], "{:.3f}")),
-        ("median paired gain, Spearman", f(w_r.get("median_diff"))),
-        ("paired Wilcoxon p, Spearman", pv(w_r.get("p"))),
-        ("median split-half reliability of a pair",
+        ("protein-level median paired gain, Spearman",
+         f(pw_r.get("median_diff"))),
+        ("protein-level proteins better / worse",
+         f"{pw_r.get('n_better', 'n/a')} / {pw_r.get('n_worse', 'n/a')}"),
+        ("protein-level p, Spearman (Wilcoxon / exact / sign-flip)",
+         three(pw_r)),
+        ("pair-level median paired gain, Spearman",
+         f(w_r.get("median_diff"))),
+        ("pair-level pairs better / worse",
+         f"{w_r.get('n_better', 0)} / {w_r.get('n_worse', 0)}"),
+        ("pair-level p, Spearman (Wilcoxon / exact / sign-flip)",
+         three(w_r)),
+        ("median inter-assay rank agreement of a pair (a reliability only "
+         "for same-quantity pairs)",
          f(allp["median_split_half_reliability"], "{:.3f}")),
-        ("pairs at or below 0.3 reliability, pooling uninformative",
+        ("pairs at or below 0.3 agreement, pooling uninformative",
          f"{allp['n_low_reliability']} of {allp['n_pairs']}"),
     ]
     if same:
@@ -615,9 +657,17 @@ def latent_truth_table():
             ("same-quantity median paired gain, top-10 recall",
              f((same.get("wilcoxon_model_pooled_minus_single")
                 or {}).get("median_diff"))),
-            ("same-quantity paired Wilcoxon p",
-             pv((same.get("wilcoxon_model_pooled_minus_single")
-                or {}).get("p"))),
+            ("same-quantity pair-level p, top-10 recall "
+             "(Wilcoxon / exact / sign-flip)",
+             three(same.get("wilcoxon_model_pooled_minus_single"))),
+            ("same-quantity proteins",
+             f"{(same.get('protein_level_recall_gain') or {}).get('n_units', 'n/a')}"),
+            ("same-quantity protein-level p, top-10 recall "
+             "(Wilcoxon / exact / sign-flip)",
+             three(same.get("protein_level_recall_gain"))),
+            ("same-quantity protein-level p, Spearman "
+             "(Wilcoxon / exact / sign-flip)",
+             three(same.get("protein_level_spearman_gain"))),
         ]
     if rel:
         rows += [
@@ -625,6 +675,9 @@ def latent_truth_table():
             ("reliable-pair median paired gain, top-10 recall",
              f((rel.get("wilcoxon_model_pooled_minus_single")
                 or {}).get("median_diff"))),
+            ("reliable-pair protein-level p, top-10 recall "
+             "(Wilcoxon / exact / sign-flip)",
+             three(rel.get("protein_level_recall_gain"))),
         ]
     if bench:
         rows += [
@@ -637,15 +690,58 @@ def latent_truth_table():
     out = pd.DataFrame(rows, columns=["pooled-truth measurement", "value"])
     tail = ""
     if w_t:
-        # the assay row is ~1 by construction (the assay is half the target),
-        # so this control measures how much attenuation 0.350 contained; it is
-        # not a score a model could be expected to match
-        tail = ("\n\nPaired control, same pairs: an assay scored against the "
-                f"pooled target gains {f(w_t.get('median_diff'))} over "
-                "truth-against-truth "
-                f"(Wilcoxon p {pv(w_t.get('p'))}). That gain is the "
-                "attenuation 0.350 was made of.")
+        # The assay row is ~1 by construction: the assay is HALF of the target
+        # it is scored against, so its own noise counts as signal. The gain is
+        # therefore mostly self-inclusion, and says nothing about attenuation
+        # of 0.350 (scripts/sim_pooling_controls.py measures the effect on
+        # simulated assays).
+        tail = ("\n\nSelf-inclusion control, same pairs: an assay scored "
+                "against a pooled target that contains it gains "
+                f"{f(w_t.get('median_diff'))} over truth-against-truth "
+                f"(Wilcoxon p {pv(w_t.get('p'))}). That gain is self-inclusion "
+                "(the assay is half of its own target), not a measure of how "
+                "much attenuation 0.350 contained: see the simulated control "
+                "below.")
     return fmt_table(out) + tail
+
+
+def sim_controls_table():
+    """The simulated self-inclusion and decile-reliability controls, from
+    results/sim_controls/summary.json (scripts/sim_pooling_controls.py)."""
+    path = ROOT / "results" / "sim_controls" / "summary.json"
+    if not path.exists():
+        return None
+    s = json.loads(path.read_text())
+    si, dr = s["selfinclusion"], s["decile_reliability"]
+    rows = []
+    for label, key in (("two assays with NO shared signal", "no_shared_signal"),
+                       (f"two assays of one latent value, noise sd "
+                        f"{si['noise_sd_z']:.3f} (the real median)",
+                        "shared_latent")):
+        v = si[key]
+        rows.append({
+            "simulation": label,
+            "A vs B": f"{v['a_to_b']:.3f}",
+            "A vs pool(A,B)": f"{v['a_to_pooled']:.3f}",
+            "B vs pool(A,B)": f"{v['b_to_pooled']:.3f}",
+            "latent vs A": f"{v['latent_to_single_a']:.3f}",
+            "latent vs pool": f"{v['latent_to_pooled']:.3f}",
+        })
+    t1 = fmt_table(pd.DataFrame(rows))
+    t2 = fmt_table(pd.DataFrame([{
+        "reps": dr["reps"],
+        "sigma_hat": f"{dr['sigma_hat']:.3f}",
+        "variance of A in its top decile": f"{dr['var_observed_in_subset']:.3f}",
+        "reliability formula": f"{dr['formula_reliability']:+.3f}",
+        "reps with negative formula": f"{dr['share_of_reps_with_negative_formula']:.0%}",
+        "true latent variance in that decile": f"{dr['var_latent_in_subset']:.3f}",
+        "corr(A, B) in that decile": f"{dr['corr_a_b_in_subset']:+.3f}",
+        "corr(latent, A) in that decile": f"{dr['corr_latent_a_in_subset']:+.3f}",
+    }]))
+    return (f"Top-10 recall, mean over {si['reps']} simulations of "
+            f"{si['n_variants']} variants:\n\n" + t1 + "\n\nDecile "
+            "reliability, formula against truth, top decile of A selected on A "
+            "itself:\n\n" + t2)
 
 
 TABLES = {
@@ -661,6 +757,7 @@ TABLES = {
     "scope_audit": scope_audit_table,
     "topk_ceiling": topk_ceiling_table,
     "latent_truth": latent_truth_table,
+    "sim_controls": sim_controls_table,
     "epistasis": epistasis_table,
     "epistasis_replicated": epistasis_replicated_table,
     "family_viral_gap": family_gap_table,

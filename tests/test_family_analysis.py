@@ -22,12 +22,9 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from variant_effect import data  # noqa: E402
 
 
-def _have_published():
-    return (ROOT / "data" / "official_spearman_dms_level.csv").exists()
-
-
-requires_published = pytest.mark.skipif(
-    not _have_published(), reason="published per-assay table not downloaded")
+# A missing published table is a FAILURE here, not a skip (tests/conftest.py):
+# a skip turned a deleted data file into a green run.
+requires_published = pytest.mark.usefixtures("published_scores_present")
 
 
 @requires_published

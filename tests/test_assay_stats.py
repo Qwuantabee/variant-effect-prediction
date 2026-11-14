@@ -13,6 +13,7 @@ import pandas as pd
 import pytest
 
 from variant_effect import assay_stats
+from conftest import require  # noqa: E402
 
 
 def test_noise_sd_recovers_a_planted_error():
@@ -144,8 +145,7 @@ def test_ceiling_script_finds_pairs_that_share_enough_variants():
     import run_topk_analysis as rta
 
     data_dir = root / "data" / "proteingym"
-    if not data_dir.exists() or not any(data_dir.glob("*.csv")):
-        pytest.skip("ProteinGym assays not downloaded")
+    require(data_dir.exists() and any(data_dir.glob("*.csv")), "ProteinGym assays not downloaded")
 
     ref = pd.read_csv(root / "data" / "DMS_substitutions.csv")
     pairs = rta.replicate_pairs(ref)
@@ -182,8 +182,7 @@ def test_scope_audit_summary_is_consistent_with_the_reference_table():
     from pathlib import Path
     path = (Path(__file__).resolve().parents[1]
             / "results" / "scope" / "summary.json")
-    if not path.exists():
-        pytest.skip("scope audit has not been run")
+    require(path.exists(), "scope audit has not been run")
     s = json.loads(path.read_text())
     assert s["variants_scanned"] == s["reference_total_mutants"]
     assert s["multi_substitution_variants"] == s["reference_multiple_mutants"]

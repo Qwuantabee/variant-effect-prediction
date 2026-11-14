@@ -31,6 +31,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import run_epistasis_replicated as rep  # noqa: E402
+from conftest import require  # noqa: E402
 
 
 def _planted(seed=0, n_single=2000, n_double=2000, gap=0.0):
@@ -277,8 +278,7 @@ def test_report_tables_renderers_read_the_run_outputs():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     body = mod.epistasis_replicated_table()
-    if body is None:
-        pytest.skip("run the script first: results are not present")
+    require(body is not None, "run the script first: results are not present")
 
     per = pd.read_csv(ROOT / "results" / "epistasis_replicated"
                       / "per_stratum.csv")
@@ -296,12 +296,10 @@ def test_readme_epistasis_replicated_block_matches_the_run():
     readme = (ROOT / "README.md").read_text()
     begin = "<!-- BEGIN GENERATED: epistasis_replicated -->"
     end = "<!-- END GENERATED: epistasis_replicated -->"
-    if begin not in readme:
-        pytest.skip("marker not present")
+    require(begin in readme, "marker not present")
     block = readme.split(begin, 1)[1].split(end, 1)[0]
     gaps_path = ROOT / "results" / "epistasis_replicated" / "gaps.csv"
-    if not gaps_path.exists():
-        pytest.skip("results not present")
+    require(gaps_path.exists(), "results not present")
     gaps = pd.read_csv(gaps_path)
     for _, g in gaps.iterrows():
         assert g["protein"] in block
