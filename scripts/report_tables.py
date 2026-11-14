@@ -392,6 +392,65 @@ def epistasis_table():
             fmt_table(gap_rows, floatfmt="{:+.3f}"))
 
 
+def epistasis_replicated_table():
+    """Singles vs doubles against a *pooled two-assay* target, from
+    results/epistasis_replicated.
+
+    Separate from ``epistasis_table`` on purpose. That one compares two
+    different variant sets inside one assay, so a stratum difference can be a
+    difference in the measured quantity. This one intersects two assays of the
+    same protein, pools them into a lower-noise target, and then compares
+    singles against doubles on the same shared variant list. Every number is
+    read from the run's CSVs.
+    """
+    per_path = ROOT / "results" / "epistasis_replicated" / "per_stratum.csv"
+    rel_path = ROOT / "results" / "epistasis_replicated" / "reliability.csv"
+    gap_path = ROOT / "results" / "epistasis_replicated" / "gaps.csv"
+    if not (per_path.exists() and rel_path.exists() and gap_path.exists()):
+        return None
+
+    per = pd.read_csv(per_path)
+    rel = pd.read_csv(rel_path)
+    gaps = pd.read_csv(gap_path)
+
+    rows = per[["protein", "stratum", "n"]].copy()
+    rows["spearman"] = [
+        f"{v:+.3f} [{lo:+.3f}, {hi:+.3f}]" if np.isfinite(v) else "n/a"
+        for v, lo, hi in zip(per["spearman"], per["spearman_lo"],
+                             per["spearman_hi"])]
+    rows["top-decile recall"] = [
+        "n/a" if not np.isfinite(v) else f"{v:.3f}"
+        for v in per["top_decile_recall"]]
+    rows["n"] = [f"{int(v):,}" for v in rows["n"]]
+    table_a = fmt_table(rows)
+
+    rel_rows = rel[["protein", "stratum", "n", "split_half_spearman",
+                    "pooled_reliability"]].copy()
+    rel_rows["n"] = [f"{int(v):,}" for v in rel_rows["n"]]
+    for col in ("split_half_spearman", "pooled_reliability"):
+        rel_rows[col] = ["n/a" if not np.isfinite(v) else f"{v:.3f}"
+                         for v in rel_rows[col]]
+    rel_rows = rel_rows.rename(columns={
+        "split_half_spearman": "split-half spearman",
+        "pooled_reliability": "pooled reliability"})
+
+    gap_rows = gaps[["protein", "n_singles", "n_doubles", "gap_spearman",
+                     "gap_spearman_lo", "gap_spearman_hi"]].copy()
+    for col in ("n_singles", "n_doubles"):
+        gap_rows[col] = [f"{int(v):,}" for v in gap_rows[col]]
+    gap_rows["gap spearman (single - double)"] = [
+        f"{v:+.3f} [{lo:+.3f}, {hi:+.3f}]"
+        if np.isfinite(v) else "n/a"
+        for v, lo, hi in zip(gap_rows["gap_spearman"],
+                             gap_rows["gap_spearman_lo"],
+                             gap_rows["gap_spearman_hi"])]
+    gap_rows = gap_rows.drop(columns=["gap_spearman", "gap_spearman_lo",
+                                      "gap_spearman_hi"])
+
+    return (table_a + "\n\n" + fmt_table(rel_rows) + "\n\n" +
+            fmt_table(gap_rows))
+
+
 def topk_ceiling_table():
     """The cross-assay ceiling, from results/topk.
 
@@ -566,6 +625,7 @@ TABLES = {
     "topk_ceiling": topk_ceiling_table,
     "latent_truth": latent_truth_table,
     "epistasis": epistasis_table,
+    "epistasis_replicated": epistasis_replicated_table,
     "family_viral_gap": family_gap_table,
     "family_separation": family_separation_text,
     "quoted_headlines": quoted_vs_published_text,

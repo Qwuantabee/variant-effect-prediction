@@ -1,0 +1,100 @@
+{
+  "pairs": {
+    "rask": {
+      "protein": "RASK_HUMAN",
+      "assay_a": "RASK_HUMAN_Weng_2022_abundance",
+      "assay_b": "RASK_HUMAN_Weng_2022_binding-DARPin_K55",
+      "role": "primary",
+      "shared": 23072,
+      "shared_singles": 2948,
+      "shared_doubles": 20124,
+      "positions_scored": 187,
+      "reliability": [
+        {
+          "stratum": "all",
+          "n": 23072,
+          "split_half_spearman": 0.3860023350447603,
+          "pooled_reliability": 0.5570009880716319,
+          "per_assay_noise_sd_z": 0.8053751354863892
+        },
+        {
+          "stratum": "singles",
+          "n": 2948,
+          "split_half_spearman": 0.47772615911268684,
+          "pooled_reliability": 0.6465692661210539,
+          "per_assay_noise_sd_z": 0.7954365704796078
+        },
+        {
+          "stratum": "doubles",
+          "n": 20124,
+          "split_half_spearman": 0.3478065961209971,
+          "pooled_reliability": 0.5161075737750335,
+          "per_assay_noise_sd_z": 0.8221653282823818
+        }
+      ]
+    },
+    "spg1": {
+      "protein": "SPG1_STRSG",
+      "assay_a": "SPG1_STRSG_Olson_2014",
+      "assay_b": "SPG1_STRSG_Wu_2016",
+      "role": "replication",
+      "shared": 1458,
+      "shared_singles": 76,
+      "shared_doubles": 1382,
+      "positions_scored": 4,
+      "reliability": [
+        {
+          "stratum": "all",
+          "n": 1458,
+          "split_half_spearman": 0.8908096380891009,
+          "pooled_reliability": 0.9422520597994997,
+          "per_assay_noise_sd_z": 0.5049910112237204
+        },
+        {
+          "stratum": "singles",
+          "n": 76,
+          "split_half_spearman": 0.9980431982454016,
+          "pooled_reliability": 0.9990206409169148,
+          "per_assay_noise_sd_z": 0.44108512413524775
+        },
+        {
+          "stratum": "doubles",
+          "n": 1382,
+          "split_half_spearman": 0.8821261002562641,
+          "pooled_reliability": 0.9373719435017205,
+          "per_assay_noise_sd_z": 0.5138492343197556
+        }
+      ]
+    }
+  },
+  "skipped": {
+    "F7YBW8_MESOW": "zero shared variants between the two assays on disk"
+  },
+  "top_frac": 0.1,
+  "n_boot": 1000,
+  "pooled_only": false,
+  "verdict": {
+    "RASK_HUMAN": {
+      "state": "better_on_doubles",
+      "gap_spearman": -0.08830489184330192,
+      "gap_ci": [
+        -0.12311825705354419,
+        -0.056699130496746034
+      ],
+      "n_singles": 2948,
+      "n_doubles": 20124,
+      "target_note": "doubles reliability 0.52"
+    },
+    "SPG1_STRSG": {
+      "state": "not_distinguishable",
+      "gap_spearman": 0.16752620547552055,
+      "gap_ci": [
+        -0.0345099644516221,
+        0.33501605611732904
+      ],
+      "n_singles": 76,
+      "n_doubles": 1382,
+      "target_note": "doubles reliability 0.94"
+    }
+  }
+}

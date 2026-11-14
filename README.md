@@ -664,6 +664,106 @@ the assay's own cross-replicate ceiling, makes a model look worse than it is.
 The right comparison for a top-10 number is another measurement of the same
 assay, not a perfect oracle.
 
+### The same question on a pooled two-assay target
+
+The test above has a confound it cannot remove, and it is worth being exact
+about which one. In each of those five assays the singles library and the
+combinatorial library are *different variant sets*, selected and measured as
+separate experiments. A rank difference between the two strata can therefore be
+a difference in the target rather than a property of the model — a spliced
+library and a saturation library do not have the same fitness distribution, and
+nothing in the within-assay comparison controls for that.
+
+`scripts/run_epistasis_replicated.py` removes it. Two assays of the *same
+protein* are intersected on the exact variant string, so every shared variant
+was measured twice by two independent experiments; the two were z-scored and
+averaged into a pooled target with roughly half the independent measurement
+noise of either. The same independent-site scorer, unchanged, then ranks the
+shared singles and the shared doubles against that one target, with one
+masked-marginal table per mutated position serving both strata. The singles are
+the control: they are scored by the same model, on the same positions, against
+the same target, and the only thing that differs is whether a second
+substitution was summed into the score.
+
+Two proteins qualify and are reported separately, never pooled. RASK_HUMAN
+(Weng 2022, abundance vs binding to DARPin K55) shares 23,072 variants with
+20,124 doubles and 2,948 singles. SPG1_STRSG (Olson 2014 vs Wu 2016) shares
+1,458 with 1,382 doubles and 76 singles. F7YBW8_MESOW shares zero variants
+between its two assays on disk, so it offers no pooled target and is skipped by
+name in the manifest.
+
+<!-- BEGIN GENERATED: epistasis_replicated -->
+| protein | stratum | n | spearman | top-decile recall |
+|---|---|---|---|---|
+| RASK_HUMAN | singles | 2,948 | +0.453 [+0.424, +0.481] | 0.186 |
+| RASK_HUMAN | doubles | 20,124 | +0.541 [+0.531, +0.551] | 0.312 |
+| SPG1_STRSG | singles | 76 | +0.551 [+0.334, +0.721] | 0.250 |
+| SPG1_STRSG | doubles | 1,382 | +0.383 [+0.338, +0.426] | 0.297 |
+
+| protein | stratum | n | split-half spearman | pooled reliability |
+|---|---|---|---|---|
+| RASK_HUMAN | all | 23,072 | 0.386 | 0.557 |
+| RASK_HUMAN | singles | 2,948 | 0.478 | 0.647 |
+| RASK_HUMAN | doubles | 20,124 | 0.348 | 0.516 |
+| SPG1_STRSG | all | 1,458 | 0.891 | 0.942 |
+| SPG1_STRSG | singles | 76 | 0.998 | 0.999 |
+| SPG1_STRSG | doubles | 1,382 | 0.882 | 0.937 |
+
+| protein | n_singles | n_doubles | gap spearman (single - double) |
+|---|---|---|---|
+| RASK_HUMAN | 2,948 | 20,124 | -0.088 [-0.123, -0.057] |
+| SPG1_STRSG | 76 | 1,382 | +0.168 [-0.035, +0.335] |
+<!-- END GENERATED: epistasis_replicated -->
+
+**The answer is no, and on the better-powered protein it is the opposite of the
+prediction.** On RASK_HUMAN the model ranks the 20,124 double mutants *better*
+than the 2,948 singles — +0.541 Spearman against +0.453, and 0.312 against
+0.186 on top-decile recall — a singles-minus-doubles gap of −0.088 with a
+bootstrap interval of [−0.123, −0.057] that excludes zero on the side opposite
+the hypothesis. That is on 23,072 variants of one protein against a target built
+from two assays, so it is not the earlier comparison repeated: if the earlier
+"multi-mutants rank better" result were an artefact of comparing two different
+libraries, removing the library mismatch should have reversed it. It did not.
+The SPG1 replication points the other way in point estimate (+0.168 gap, i.e.
+doubles slightly worse) but its interval is [−0.035, +0.335] and its single
+stratum is 76 variants, so it is **not distinguishable** from zero and should
+not be read as support for degradation either. Two proteins, one clearly
+against the hypothesis and one uninformative: this weakens the independent-site
+explanation rather than supporting it.
+
+What the run can and cannot say, stated plainly:
+
+* **The RASK target is mediocre, and that cuts both ways.** Split-half
+  reliability between the two Weng assays is just +0.386 over all shared
+  variants — the abundance and DARPin-binding readouts disagree about a large
+  share of the ordering — so the pooled target reaches only 0.557 on the
+  Spearman-Brown correction, and 0.516 within the doubles. A noisy target
+  attenuates every correlation measured against it towards zero; it does not
+  manufacture a *direction*, and the direction here is against the hypothesis
+  with an interval excluding zero. What it does mean is that both rho values
+  are lower bounds, and the gap is the difference of two attenuated quantities.
+* **The reliability asymmetry runs opposite to the result.** The singles target
+  is the *cleaner* one (0.647 pooled reliability against 0.516 for the doubles),
+  so attenuation alone predicts singles should correlate *better* than doubles.
+  They correlate worse. The confound pushes against what was measured rather
+  than producing it.
+* **SPG1 is a clean target but a narrow library.** Reliability is 0.937 within
+  the doubles, so the target is close to noise-free; but its shared variants
+  touch only four positions, and its 76 singles give an interval half a unit
+  wide. A high-quality target on a tiny, low-dimensional library cannot settle
+  the question, and it does not overturn RASK.
+* **This tests one model class on two proteins.** Nothing here generalises to
+  triples, to structurally coupled sites chosen deliberately, or to proteins
+  whose doubles library is wide; it is a direct test of the claim that summing
+  independent log-odds costs accuracy exactly where epistasis is measured, and
+  on the only well-powered replicated pair available locally it does not.
+
+The mechanism that reconciles both epistasis sections is the same one: the top
+of a DMS assay rewards detecting damage, a double mutant accumulates two
+damages, and a sum of two negative log-odds is a good damage detector. Epistasis
+is large and real — the model-free residual above says so — and the
+independent-site score is still not the reason the top decile is mediocre.
+
 ## Masked marginals vs the cheap alternative
 
 Scoring uses masked marginals, the scheme from the ESM paper: mask the mutated

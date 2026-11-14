@@ -23,4 +23,5 @@ results/epistasis/_cache/
 # masked-marginal tables for the latent-truth test: 5.5k positions of ESM-2
 # forward passes, ~120 MB, reproduced by scripts/launch_latent_truth_scores.sh
 results/latent_truth/_cache/
+results/epistasis_replicated/_cache/
 results/latent_truth/*.log
