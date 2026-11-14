@@ -444,12 +444,12 @@ mean anywhere in it.
 | pair-level p, Spearman (Wilcoxon / exact / sign-flip) | < 0.0001 / < 0.0001 / < 0.0001 |
 | median inter-assay rank agreement of a pair (a reliability only for same-quantity pairs) | 0.611 |
 | pairs at or below 0.3 agreement, pooling uninformative | 4 of 32 |
-| same-quantity pairs only: n | 18 |
-| same-quantity median paired gain, top-10 recall | +0.025 |
-| same-quantity pair-level p, top-10 recall (Wilcoxon / exact / sign-flip) | 0.2984 / 0.3225 / 0.4210 |
-| same-quantity proteins | 9 |
-| same-quantity protein-level p, top-10 recall (Wilcoxon / exact / sign-flip) | 0.4982 / 0.5781 / 0.8125 |
-| same-quantity protein-level p, Spearman (Wilcoxon / exact / sign-flip) | 0.0077 / 0.0039 / 0.0041 |
+| same-quantity pairs only: n | 13 |
+| same-quantity median paired gain, top-10 recall | +0.100 |
+| same-quantity pair-level p, top-10 recall (Wilcoxon / exact / sign-flip) | 0.1246 / 0.1514 / 0.1671 |
+| same-quantity proteins | 8 |
+| same-quantity protein-level p, top-10 recall (Wilcoxon / exact / sign-flip) | 0.2041 / 0.2969 / 0.2349 |
+| same-quantity protein-level p, Spearman (Wilcoxon / exact / sign-flip) | 0.0117 / 0.0078 / 0.0078 |
 | reliable pairs only (split-half > 0.3): n | 28 |
 | reliable-pair median paired gain, top-10 recall | +0.025 |
 | reliable-pair protein-level p, top-10 recall (Wilcoxon / exact / sign-flip) | 0.0769 / 0.0923 / 0.1487 |

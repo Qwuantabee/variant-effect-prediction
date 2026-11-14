@@ -48,7 +48,12 @@ def test_topk_script_uses_the_registry_list():
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
     import run_topk_analysis as tk
     assert tk.DIFFERENT_QUANTITY is quantity.DIFFERENT_QUANTITY
-    assert len(quantity.DIFFERENT_QUANTITY) == 16
+    # 16 hand-curated pairs, plus the 5 the reference table marked different
+    # and the hand list did not (Mark approved adding them 2026-11-14: the
+    # coarse_selection_type differs across each, so they were never parallel
+    # measures). The count is asserted exactly so an accidental deletion from
+    # either group fails here.
+    assert len(quantity.DIFFERENT_QUANTITY) == 21
 
 
 def test_reference_table_agrees_the_rask_pair_is_expression_vs_binding():
@@ -60,14 +65,43 @@ def test_reference_table_agrees_the_rask_pair_is_expression_vs_binding():
 
 
 def test_reference_disagreements_lists_pairs_both_ways():
+    """The two directions of the hand-list / reference-table comparison.
+
+    TEST-CHANGE: this asserted that CCDB Adkar_2012/Tripathi_2016 was ABSENT
+    from the hand list (it appeared in unlisted_diff). Mark approved adding the
+    five reference-flagged pairs on 2026-11-14, so that assertion now encodes
+    the opposite of the intended state. The test keeps both directions and
+    gains a check that each of the five is genuinely listed.
+    """
     ref = data.reference_table()
     require(not ref.empty, "reference table not loaded")
     listed_same, unlisted_diff = quantity.reference_disagreements(ref)
-    # the hand list holds pairs the coarse label cannot express ...
+
+    # direction 1: the hand list holds pairs the coarse label cannot express
     assert ("CAR11_HUMAN_Meitlis_2020_gof",
             "CAR11_HUMAN_Meitlis_2020_lof") in listed_same
-    # ... and the reference table flags pairs the hand list does not hold
-    assert ("CCDB_ECOLI_Adkar_2012", "CCDB_ECOLI_Tripathi_2016") in unlisted_diff
+
+    # direction 2: every remaining reference disagreement must be a REAL one --
+    # its two assays must differ in coarse type and must not be listed. This
+    # can still fail if the registry grows a pair the reference agrees on.
+    coarse = ref.set_index("DMS_id")["coarse_selection_type"]
+    for a, b in unlisted_diff:
+        assert coarse.loc[a] != coarse.loc[b]
+        assert frozenset((a, b)) not in quantity.DIFFERENT_QUANTITY
+
+    # the five pairs Mark approved are now listed, so they can never appear as
+    # an unlisted disagreement again
+    for a, b in [
+        ("CCDB_ECOLI_Adkar_2012", "CCDB_ECOLI_Tripathi_2016"),
+        ("RL40A_YEAST_Mavor_2016", "RL40A_YEAST_Roscoe_2014"),
+        ("RL40A_YEAST_Roscoe_2013", "RL40A_YEAST_Roscoe_2014"),
+        ("SRC_HUMAN_Ahler_2019", "SRC_HUMAN_Nguyen_2022"),
+        ("SRC_HUMAN_Chakraborty_2023_binding-DAS_25uM",
+         "SRC_HUMAN_Nguyen_2022"),
+    ]:
+        assert frozenset((a, b)) in quantity.DIFFERENT_QUANTITY
+        assert (a, b) not in unlisted_diff
+
     # RASK is consistent between the two sources
     assert (RASK_A, RASK_B) not in listed_same
     assert (RASK_A, RASK_B) not in unlisted_diff
