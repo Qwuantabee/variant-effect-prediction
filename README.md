@@ -365,8 +365,9 @@ the answer on epistasis is that it is real but not the cause.
 `scripts/run_topk_analysis.py` uses the 37 pairs of same-protein assays in
 ProteinGym -- 22 proteins with two or more assays, restricted to the variants
 each pair shares, at least 200 of them -- as replicate measurements. Two
-assays of one protein, scored on the same variants, bound what any predictor
-could achieve.
+assays of one protein, scored on the same variants, measure how well two noisy
+readings of a truth agree -- which is not the same as a bound on what a
+predictor could achieve, and the next block takes that distinction apart.
 
 <!-- BEGIN GENERATED: topk_ceiling -->
 | measurement | value |
@@ -392,12 +393,31 @@ Does the shape of the top decile predict the model's recall?
 | at_max_frac | 217 | +0.122 | +0.072 |
 <!-- END GENERATED: topk_ceiling -->
 
-The ceiling is the assay. Taking one assay's measurements as a predictor of
-another's top 10%, with no model involved at all, gives a median top-10
-recall of 0.350 over the 37 pairs against the model's 0.323. The best
-possible predictor of an assay's top decile is the assay, and it scores 0.35.
-A model at 0.32 is not failing to find the top variants; it is within a
-rounding error of what the data can resolve.
+**What 0.350 is, and what it is not.** 0.350 is how well one assay agrees with
+another assay on which variants are in the top 10%. It is *not* an
+information-theoretic upper bound, and the earlier version of this paragraph
+was wrong to call it a ceiling. Two assays of one protein are two *noisy*
+measurements of the same latent quantity; their agreement is attenuated by
+both measurements' error, so a predictor that tracked the latent quantity
+closely could beat their mutual agreement without contradicting anything.
+
+Two further problems with the original sentence are fixed here. First, 0.350
+was a median over 37 replicate pairs and 0.323 was a mean over a different
+population, 217 assays - those are not comparable quantities. The table below
+reports the model's recall on the assays that actually have a replicate, so
+the comparison is like for like. Second, the honest question is not "is the
+model near 0.35" but "does the model's recall rise when the target gets
+closer to the truth".
+
+Averaging two replicate measurements reduces the noise, so the average is a
+better target than either assay. `scripts/run_latent_truth_test.py` builds
+that target for every pair with at least 1,000 shared variants and scores the
+model against both the single assays and the pooled estimate, on the same
+variants of the same pairs, with a paired test. No median is compared to a
+mean anywhere in it.
+
+<!-- BEGIN GENERATED: latent_truth -->
+<!-- END GENERATED: latent_truth -->
 
 The reason is visible in the numbers. Per-measurement error, standardised so
 two assays on different scales are comparable, has a median of 0.592 in
@@ -410,6 +430,35 @@ cannot be ranked by anything, and the top decile of a typical DMS assay is
 that subset. The Jaccard overlap of two assays' top deciles is 0.161: the
 sets barely coincide even where the rankings agree at 0.61 over the whole
 assay.
+
+What the pooled target is and is not. Pooling halves the *independent*
+measurement variance and leaves the rest: half the single-assay error is still
+in the target, so a recall measured against it is a **lower bound** on what the
+same predictor would score against the latent quantity - the real headroom is
+at least what is shown, not at most. It is also not a platonic truth. Error the
+two assays share (a common variant library, a common reporter, a common growth
+readout) survives averaging untouched, and where a pair measures deliberately
+different quantities - a gain-of-function assay against a loss-of-function one,
+expression against activity - their average is a pseudo-quantity no experiment
+measured, so a recall against it can be optimistic rather than conservative.
+The same-quantity row of the table is the check on that, and the low-
+reliability row is the check on pairs whose two measurements barely agree at
+all, where pooling averages two disagreements and is not informative.
+
+One asymmetry, stated because it limits what the table can say: assay A is not
+an independent predictor of a target it is half of, so "assay against the
+pooled target" is a diagnostic of how much attenuation 0.350 contained, not a
+benchmark. The model score is independent of both assays, which is why the
+model rows are the ones that answer the question.
+
+So what is the ceiling? There is no measured upper bound here, and the data
+cannot supply one: an upper bound needs the latent truth, and the latent truth
+is what a noisy assay fails to give. What the numbers support is narrower and
+still useful. Inside one assay's top decile the measurement error is larger
+than the entire spread of the decile, which is why the decile *internal*
+ordering is not resolvable by anything - that part of the old argument stands.
+But "the model has no headroom" does not follow from it, and the pooled-target
+comparison is where that shows.
 
 The heterogeneity candidate does not survive. If the model did badly on
 assays whose top decile is a plateau, decile shape would predict its recall

@@ -448,6 +448,100 @@ def topk_ceiling_table():
     return fmt_table(out, floatfmt="{:.3f}")
 
 
+def latent_truth_table():
+    """The pooled-truth test: is 0.350 an upper bound, or attenuated agreement?
+
+    Read from results/latent_truth/summary.json, which
+    scripts/run_latent_truth_test.py writes. Everything here is a paired
+    quantity: the same variants of the same pairs, one target swapped for
+    another. Nothing compares a median of 37 pairs to a mean of 217 assays,
+    which is what made the old 0.350-vs-0.323 sentence unsound.
+    """
+    path = ROOT / "results" / "latent_truth" / "summary.json"
+    if not path.exists():
+        return None
+    s = json.loads(path.read_text())
+    allp = s["assays"]
+    same = s.get("same_quantity", {})
+    rel = s.get("reliable_only", {})
+    bench = s.get("benchmark_reference", {})
+
+    def f(x, spec="{:+.3f}"):
+        if x is None or not np.isfinite(x):
+            return "n/a"
+        return spec.format(x)
+
+    w = allp.get("wilcoxon_model_pooled_minus_single") or {}
+    w_r = allp.get("wilcoxon_spearman_pooled_minus_single") or {}
+    w_t = allp.get("wilcoxon_assay_to_pooled_minus_truth_vs_truth") or {}
+
+    rows = [
+        ("replicate pairs with >= {} shared variants".format(
+            s["threshold_shared_variants"]), f"{allp['n_pairs']}"),
+        ("proteins covered", f"{allp['n_proteins']}"),
+        ("shared variant measurements", f"{allp['n_variants']}"),
+        ("median truth-vs-truth top-10 recall (the old 0.350 definition)",
+         f(allp["median_recall_truth_vs_truth"], "{:.3f}")),
+        ("mean truth-vs-truth top-10 recall, same pairs",
+         f(allp["mean_recall_truth_vs_truth"], "{:.3f}")),
+        ("median top-10 recall, assay against the pooled target",
+         f(allp["median_recall_a_to_pooled"], "{:.3f}")),
+        ("median top-10 recall, model against one assay",
+         f(allp["median_recall_model_to_single"], "{:.3f}")),
+        ("median top-10 recall, model against the pooled target",
+         f(allp["median_recall_model_to_pooled"], "{:.3f}")),
+        ("median paired gain, model vs pooled minus model vs single",
+         f(w.get("median_diff"))),
+        ("pairs where pooling helped the model",
+         f"{w.get('n_pairs_pooled_better', 0)} of {allp['n_pairs']}"),
+        ("paired Wilcoxon p, top-10 recall", f(w.get("p"), "{:.4f}")),
+        ("median Spearman, model against one assay",
+         f(allp["median_spearman_model_to_single"], "{:.3f}")),
+        ("median Spearman, model against the pooled target",
+         f(allp["median_spearman_model_to_pooled"], "{:.3f}")),
+        ("median paired gain, Spearman", f(w_r.get("median_diff"))),
+        ("paired Wilcoxon p, Spearman", f(w_r.get("p"), "{:.4f}")),
+        ("median split-half reliability of a pair",
+         f(allp["median_split_half_reliability"], "{:.3f}")),
+        ("pairs at or below 0.3 reliability, pooling uninformative",
+         f"{allp['n_low_reliability']} of {allp['n_pairs']}"),
+    ]
+    if same:
+        rows += [
+            ("same-quantity pairs only: n", f"{same['n_pairs']}"),
+            ("same-quantity median paired gain, top-10 recall",
+             f((same.get("wilcoxon_model_pooled_minus_single")
+                or {}).get("median_diff"))),
+            ("same-quantity paired Wilcoxon p",
+             f((same.get("wilcoxon_model_pooled_minus_single")
+                or {}).get("p"), "{:.4f}")),
+        ]
+    if rel:
+        rows += [
+            ("reliable pairs only (split-half > 0.3): n", f"{rel['n_pairs']}"),
+            ("reliable-pair median paired gain, top-10 recall",
+             f((rel.get("wilcoxon_model_pooled_minus_single")
+                or {}).get("median_diff"))),
+        ]
+    if bench:
+        rows += [
+            (f"model mean top-10 recall, all {bench['n_all_assays']} assays",
+             f(bench["mean_recall_all_assays"], "{:.3f}")),
+            (f"model mean top-10 recall, the {bench['n_paired_assays']} "
+             "assays that have a replicate",
+             f(bench["mean_recall_paired_assays"], "{:.3f}")),
+        ]
+    out = pd.DataFrame(rows, columns=["pooled-truth measurement", "value"])
+    tail = ""
+    if w_t:
+        tail = ("\n\nA paired control: an assay scored against the pooled "
+                "target gains "
+                f"{f(w_t.get('median_diff'))} over truth-against-truth on the "
+                f"same pairs (Wilcoxon p = {f(w_t.get('p'), '{:.4f}')}). "
+                "That gain is the attenuation 0.350 was made of.")
+    return fmt_table(out) + tail
+
+
 TABLES = {
     "full_benchmark": full_benchmark_table,
     "full_benchmark_coverage": full_benchmark_coverage,
@@ -460,6 +554,7 @@ TABLES = {
     "structure_heldout": structure_heldout_text,
     "scope_audit": scope_audit_table,
     "topk_ceiling": topk_ceiling_table,
+    "latent_truth": latent_truth_table,
     "epistasis": epistasis_table,
     "family_viral_gap": family_gap_table,
     "family_separation": family_separation_text,
