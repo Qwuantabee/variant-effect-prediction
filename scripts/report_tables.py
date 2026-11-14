@@ -320,6 +320,62 @@ def quoted_vs_published_text():
         ", ".join(parts) + "."
 
 
+def topk_ceiling_table():
+    """The cross-assay ceiling, from results/topk.
+
+    The prose around this table argues from these numbers, so they are
+    rendered rather than typed: a hand-copied 0.35 that drifts to 0.30 would
+    still read as a sentence.
+    """
+    path = ROOT / "results" / "topk" / "cross_assay_ceiling.csv"
+    shape_path = ROOT / "results" / "topk" / "shape_vs_recall.csv"
+    if not path.exists():
+        return None
+    d = pd.read_csv(path)
+    per_assay = (ROOT / "results" / "full"
+                 / "esm2_t33_650M_UR50D_per_assay.csv")
+    model_recall = np.nan
+    if per_assay.exists():
+        pa = pd.read_csv(per_assay)
+        esm = pa[pa["method"] == "esm2"]
+        if len(esm):
+            model_recall = float(esm["top10_recall"].mean())
+
+    both = d["noise_exceeds_top_spread_a"] & d["noise_exceeds_top_spread_b"]
+    rows = [
+        ("replicate assay pairs", f"{len(d)}"),
+        ("proteins covered", f"{d['uniprot'].nunique()}"),
+        ("median top-10 recall, truth against truth",
+         f"{d['top10_recall_mean'].median():.3f}"),
+        ("median Spearman over the whole shared set",
+         f"{d['spearman_whole'].median():.3f}"),
+        ("median Jaccard overlap of the two top deciles",
+         f"{d['jaccard_top_decile'].median():.3f}"),
+        ("median per-measurement error (sd units)",
+         f"{d['noise_sd_z'].median():.3f}"),
+        ("median top-decile internal spread (sd units)",
+         f"{d['top_decile_sd_a'].median():.3f}"),
+        ("pairs whose decile spread is smaller than one measurement's "
+         "error, on both sides", f"{int(both.sum())} of {len(d)}"),
+        ("pairs whose top-decile reliability is at or below zero",
+         f"{int((d['reliability_top_decile'] <= 0).sum())} of {len(d)}"),
+        ("the model's mean top-10 recall, 217 assays",
+         "n/a" if not np.isfinite(model_recall) else f"{model_recall:.3f}"),
+    ]
+    out = pd.DataFrame(rows, columns=["measurement", "value"])
+
+    if shape_path.exists():
+        s = pd.read_csv(shape_path)
+        s = s.rename(columns={"predictor": "decile-shape predictor",
+                              "n_assays": "assays",
+                              "p": "p"})
+        s = s[["decile-shape predictor", "assays", "spearman", "p"]]
+        return (fmt_table(out, floatfmt="{:.3f}") + "\n\n" +
+                "Does the shape of the top decile predict the model's recall?"
+                "\n\n" + fmt_table(s, floatfmt="{:+.3f}"))
+    return fmt_table(out, floatfmt="{:.3f}")
+
+
 TABLES = {
     "full_benchmark": full_benchmark_table,
     "full_benchmark_coverage": full_benchmark_coverage,
@@ -331,6 +387,7 @@ TABLES = {
     "structure_burial": burial_table,
     "structure_heldout": structure_heldout_text,
     "scope_audit": scope_audit_table,
+    "topk_ceiling": topk_ceiling_table,
     "family_viral_gap": family_gap_table,
     "family_separation": family_separation_text,
     "quoted_headlines": quoted_vs_published_text,

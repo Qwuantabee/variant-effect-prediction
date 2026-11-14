@@ -355,12 +355,78 @@ penalty on half the assays, evaluate on the other half — is reported in
 the held-out set is too small in the runs that completed to call it either way.
 That is worth saying plainly instead of quoting the one flattering split.
 
-So the top-k failure has some other cause. The candidates left are epistasis
+So the top-k failure has some other cause. The candidates left were epistasis
 (the model scores substitutions independently, and the top of a DMS assay is
 where combinations matter most), the heterogeneity of what "top 10%" means
 across assays, and plain measurement noise in the assays with few variants.
-None is tested here, and this is now the most interesting open question in the
-project.
+
+Two of those three are now tested, and the answer is the measurement.
+`scripts/run_topk_analysis.py` uses the 37 pairs of same-protein assays in
+ProteinGym -- 22 proteins with two or more assays, restricted to the variants
+each pair shares, at least 200 of them -- as replicate measurements. Two
+assays of one protein, scored on the same variants, bound what any predictor
+could achieve.
+
+<!-- BEGIN GENERATED: topk_ceiling -->
+| measurement | value |
+|---|---|
+| replicate assay pairs | 37 |
+| proteins covered | 22 |
+| median top-10 recall, truth against truth | 0.350 |
+| median Spearman over the whole shared set | 0.610 |
+| median Jaccard overlap of the two top deciles | 0.161 |
+| median per-measurement error (sd units) | 0.592 |
+| median top-decile internal spread (sd units) | 0.294 |
+| pairs whose decile spread is smaller than one measurement's error, on both sides | 29 of 37 |
+| pairs whose top-decile reliability is at or below zero | 32 of 37 |
+| the model's mean top-10 recall, 217 assays | 0.323 |
+
+Does the shape of the top decile predict the model's recall?
+
+| decile-shape predictor | assays | spearman | p |
+|---|---|---|---|
+| spread_ratio | 217 | -0.077 | +0.260 |
+| range_share | 217 | -0.084 | +0.219 |
+| distinct_frac | 217 | +0.083 | +0.225 |
+| at_max_frac | 217 | +0.122 | +0.072 |
+<!-- END GENERATED: topk_ceiling -->
+
+The ceiling is the assay. Taking one assay's measurements as a predictor of
+another's top 10%, with no model involved at all, gives a median top-10
+recall of 0.350 over the 37 pairs against the model's 0.323. The best
+possible predictor of an assay's top decile is the assay, and it scores 0.35.
+A model at 0.32 is not failing to find the top variants; it is within a
+rounding error of what the data can resolve.
+
+The reason is visible in the numbers. Per-measurement error, standardised so
+two assays on different scales are comparable, has a median of 0.592 in
+standard-deviation units. The top decile's *entire internal spread* has a
+median of 0.294. On 29 of the 37 pairs, on both sides, the whole range of the
+decile is smaller than one measurement's error -- and the reliability of the
+decile, defined as the share of its variance that is signal rather than that
+error, is at or below zero on 32 of the 37. A subset with zero reliability
+cannot be ranked by anything, and the top decile of a typical DMS assay is
+that subset. The Jaccard overlap of two assays' top deciles is 0.161: the
+sets barely coincide even where the rankings agree at 0.61 over the whole
+assay.
+
+The heterogeneity candidate does not survive. If the model did badly on
+assays whose top decile is a plateau, decile shape would predict its recall
+across the 217 assays. It does not: the second table above gives the rank
+correlations, and none of them is a predictor worth acting on.
+
+What is left is epistasis, and this data cannot test it. The pairs above are
+almost all single-substitution assays -- 47 of the 51 assays involved contain
+no multi-mutant variants at all -- so whether the model would rank a
+double mutant correctly, which is where an independent-site scorer should
+fail, is not measured anywhere here. That is the one candidate still standing
+untested, and it is stated as untested rather than argued away.
+
+The practical consequence is worth stating because it changes how to read
+the headline Spearman. Reporting a top-k recall alongside a Spearman, without
+the assay's own cross-replicate ceiling, makes a model look worse than it is.
+The right comparison for a top-10 number is another measurement of the same
+assay, not a perfect oracle.
 
 ## Masked marginals vs the cheap alternative
 
