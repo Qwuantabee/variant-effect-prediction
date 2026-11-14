@@ -10,9 +10,11 @@ Run:
     python scripts/report_tables.py            # print
     python scripts/report_tables.py --write    # rewrite the generated blocks
 
-Markers in the README delimit the generated regions:
+Markers delimit the generated regions:
     <!-- BEGIN GENERATED: <name> -->  ...  <!-- END GENERATED: <name> -->
-Anything outside those markers is prose and is left alone.
+Anything outside those markers is prose and is left alone. The bulky tables
+(PAGE_TABLES) live in RESULTS.md so the README stays readable; the README says
+which table each section refers to. Every other table is in the README itself.
 """
 
 import argparse
@@ -29,6 +31,11 @@ sys.path.insert(0, str(ROOT / "src"))
 from variant_effect import aggregate, data  # noqa: E402
 
 README = ROOT / "README.md"
+RESULTS_PAGE = ROOT / "RESULTS.md"
+# Tables that are written to RESULTS.md instead of the README. The replicated-
+# epistasis table is NOT here: a test compares it with the README, byte for byte.
+PAGE_TABLES = ("topk_ceiling", "latent_truth", "sim_controls", "epistasis",
+               "family_viral_gap")
 BEGIN = "<!-- BEGIN GENERATED: {} -->"
 END = "<!-- END GENERATED: {} -->\n"
 
@@ -788,24 +795,25 @@ def main():
     ap.add_argument("--write", action="store_true")
     args = ap.parse_args()
 
-    text = README.read_text()
-    updated = text
+    docs = {p: p.read_text() for p in (README, RESULTS_PAGE) if p.exists()}
     for name in TABLES:
         body = render(name)
+        home = RESULTS_PAGE if name in PAGE_TABLES else README
         begin, end = BEGIN.format(name), END.format(name)
-        if begin not in updated:
-            print(f"(no marker for {name} in README)")
+        if begin not in docs.get(home, ""):
+            print(f"(no marker for {name} in {home.name})")
             continue
-        pre, rest = updated.split(begin, 1)
+        pre, rest = docs[home].split(begin, 1)
         _, post = rest.split(end, 1)
-        updated = pre + begin + "\n" + body + "\n" + end + post
+        docs[home] = pre + begin + "\n" + body + "\n" + end + post
         print(f"--- {name} ---")
         print(body)
         print()
 
     if args.write:
-        README.write_text(updated)
-        print(f"wrote {README}")
+        for p, t in docs.items():
+            p.write_text(t)
+            print(f"wrote {p}")
 
 
 if __name__ == "__main__":
