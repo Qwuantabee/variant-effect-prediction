@@ -261,9 +261,9 @@ so calling them all bad is mostly right. The model's top-10 picks are *not*
 biased toward exposed positions (mean relative accessibility of the top picks is
 within 0.011 of the assay mean, no significant departure from zero), so there is
 no shortcut to correct. The constructive test (penalise buried substitutions, fit
-on half the assays, evaluate on the other half) is reported in
-`results/structure/full_heldout.csv` rather than given a number here, because the
-held-out set is too small in the runs that completed to call it either way.
+on half the assays, evaluate on the other half) was not completed: the held-out
+set is too small in the runs that finished to call it either way, so no number
+is quoted here and there is no artefact for it.
 
 The candidates left: measurement noise, a better target, and epistasis (next).
 
