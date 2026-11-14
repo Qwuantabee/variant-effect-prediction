@@ -63,22 +63,29 @@ def _rank_rows(a):
     return ranks
 
 
-def spearman_ci(pred, truth, n_boot=1000, seed=0, max_resample=20000):
+def spearman_ci(pred, truth, n_boot=1000, seed=0, max_resample=20000,
+                groups=None):
     """Bootstrap CI on Spearman.
 
-    Worth reporting because assays vary from 50 to 10,000 variants and a
-    correlation from the small ones is a lot shakier than the headline number
-    suggests.
+    RESAMPLING UNIT: with groups=None the unit is the VARIANT (iid draw of
+    rows). That is only valid when variants are independent. DMS variants are
+    not: they cluster by position, and a variant-level interval on clustered
+    data is too narrow (RASK_HUMAN doubles: about 3x). Whenever the position of
+    each variant is known pass groups, one entry per input row -- a label, or
+    an iterable of labels for a multi-position variant (see
+    resampling.ClusterIndex). Then the unit is the POSITION: positions are
+    drawn with replacement and each variant is weighted by the product of the
+    multiplicities of the positions it touches.
 
-    max_resample caps the variants drawn per replicate. Without it the largest
-    ProteinGym assay (HIS7_YEAST, 496,137 variants) spends minutes inside 1000
-    scipy calls, stalling a sweep whose model work is already done, and a
-    (n_boot, n) float64 matrix to vectorise the same thing would need 4 GB.
-    A fixed-size subsample changes what is estimated from "the sampling
-    distribution of rho on this exact assay" to the same estimated from a large
-    representative subsample; at n >= 20000 the standard error is within about
-    1% of the full-assay value, far below the between-assay spread the interval
-    is read against.
+    Variant-level mode (groups=None) caps the draw at max_resample variants per
+    replicate: without a cap the largest ProteinGym assay (HIS7_YEAST, 496,137
+    variants) spends minutes inside 1000 scipy calls and a (n_boot, n) float64
+    matrix would need 4 GB. For n above max_resample the cap draws fewer
+    variants than exist, so the interval is WIDER than the full-n variant-level
+    one by about sqrt(n / max_resample) (it is not "within 1% of full-n"
+    beyond n = max_resample; every n in this repo's reported intervals is at
+    most 21,442, where the factor is about 1.04). Cluster mode does not cap: it
+    realises the full resampled set.
     """
     rng = np.random.default_rng(seed)
     ok = np.isfinite(pred) & np.isfinite(truth)
@@ -87,6 +94,23 @@ def spearman_ci(pred, truth, n_boot=1000, seed=0, max_resample=20000):
     n = len(p)
     if n < 10:
         return (np.nan, np.nan)
+
+    if groups is not None:
+        from .resampling import ClusterIndex, expand
+        grp = [g for g, keep in zip(groups, ok) if keep]
+        index = ClusterIndex(grp)
+        reps = []
+        for _ in range(n_boot):
+            idx = expand(index.draw(rng))
+            if len(idx) < 10:
+                continue
+            r = stats.spearmanr(p[idx], t[idx]).statistic
+            if np.isfinite(r):
+                reps.append(r)
+        if len(reps) < 10:
+            return (np.nan, np.nan)
+        return (float(np.percentile(reps, 2.5)),
+                float(np.percentile(reps, 97.5)))
 
     draw = int(min(n, max_resample))
     idx = rng.integers(0, n, (n_boot, draw))
@@ -148,9 +172,11 @@ def ndcg(pred, truth, k=None):
     return actual / ideal if ideal > 0 else np.nan
 
 
-def evaluate(pred, truth, truth_bin=None, k=10):
-    """All of the above in one dict."""
-    lo, hi = spearman_ci(pred, truth)
+def evaluate(pred, truth, truth_bin=None, k=10, groups=None):
+    """All of the above in one dict. groups is passed to spearman_ci (None =
+    variant-level interval, which understates the uncertainty on clustered
+    data; see spearman_ci)."""
+    lo, hi = spearman_ci(pred, truth, groups=groups)
     out = {
         "spearman": spearman(pred, truth),
         "spearman_lo": lo,
