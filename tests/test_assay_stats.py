@@ -156,3 +156,35 @@ def test_ceiling_script_finds_pairs_that_share_enough_variants():
     for p in pairs:
         same = ref[ref["DMS_id"].isin([p["a"], p["b"]])]["UniProt_ID"].nunique()
         assert same == 1
+
+
+def test_scope_audit_notation_regex_rejects_indels():
+    """The audit's whole purpose is to certify "no indels", so its notation
+    pattern has to actually reject them. A pattern that silently accepts
+    `A2del` would turn the claim into a tautology."""
+    import sys
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(root / "scripts"))
+    import run_scope_audit as rsa
+
+    for good in ("A2M", "A2*", "A2M:K5R", "W12Y:A33V:G90S"):
+        assert rsa.SUB_RE.match(good), good
+    for bad in ("A2del", "A2insG", "A2fs", "A2_3delinsAA", "del2", "", "A2M:K5"):
+        assert not rsa.SUB_RE.match(bad), bad
+
+
+def test_scope_audit_summary_is_consistent_with_the_reference_table():
+    """If the audit has run, its own count of multi-substitution variants must
+    agree with ProteinGym's reference column. Two independent counts that
+    disagree mean the scan is not reading what it claims to read."""
+    import json
+    from pathlib import Path
+    path = (Path(__file__).resolve().parents[1]
+            / "results" / "scope" / "summary.json")
+    if not path.exists():
+        pytest.skip("scope audit has not been run")
+    s = json.loads(path.read_text())
+    assert s["variants_scanned"] == s["reference_total_mutants"]
+    assert s["multi_substitution_variants"] == s["reference_multiple_mutants"]
+    assert s["variants_not_substitution_notation"] == 0

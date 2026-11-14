@@ -16,6 +16,7 @@ Anything outside those markers is prose and is left alone.
 """
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -245,6 +246,34 @@ def structure_heldout_text():
     )
 
 
+def scope_audit_table():
+    """What the benchmark actually contains, from results/scope/summary.json."""
+    path = ROOT / "results" / "scope" / "summary.json"
+    if not path.exists():
+        return None
+    s = json.loads(path.read_text())
+    if not s.get("variants_scanned"):
+        return None
+    total = s["variants_scanned"]
+    rows = [
+        ("assays in the benchmark", f"{s['assays_scored']}"),
+        ("assays scored on disk", f"{s['assays_on_disk']}"),
+        ("variants scanned", f"{total:,}"),
+        ("variants not in substitution notation",
+         f"{s['variants_not_substitution_notation']}"),
+        ("variants carrying a stop codon", f"{s['variants_with_stop_codon']}"),
+        ("multi-substitution variants",
+         f"{s['multi_substitution_variants']:,} "
+         f"({100 * s['multi_substitution_variants'] / total:.1f}%)"),
+        ("assays that are single-substitution only",
+         f"{s['assays_all_single_substitution']} of {s['assays_scored']}"),
+        ("indel archive on disk", "yes" if s["indel_archive_present"] else "no"),
+        ("clinical labels on disk", f"{s['clinical_labels_on_disk']}"),
+    ]
+    out = pd.DataFrame(rows, columns=["what", "measured"])
+    return fmt_table(out, floatfmt="{:.3f}")
+
+
 TABLES = {
     "full_benchmark": full_benchmark_table,
     "full_benchmark_coverage": full_benchmark_coverage,
@@ -255,6 +284,7 @@ TABLES = {
     "scaling_subgroups": scaling_table,
     "structure_burial": burial_table,
     "structure_heldout": structure_heldout_text,
+    "scope_audit": scope_audit_table,
 }
 
 

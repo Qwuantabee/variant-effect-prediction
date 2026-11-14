@@ -122,9 +122,14 @@ number, and quoting it next to ProteinGym's 0.414 would be misleading.
 Scoring all 217 assays gives this:
 
 <!-- BEGIN GENERATED: full_benchmark -->
+|  | this implementation | ProteinGym published | difference |
+|---|---|---|---|
+| headline (macro over 5 categories) | +0.415 | +0.414 | +0.001 |
+| per-assay mean (unbalanced) | +0.439 | +0.438 | +0.001 |
 <!-- END GENERATED: full_benchmark -->
 
 <!-- BEGIN GENERATED: full_benchmark_coverage -->
+217 of 217 assays scored. Against the published per-assay column: mean difference +0.0009, median absolute 0.0003, maximum absolute 0.2307. 214 of 217 assays within 0.01.
 <!-- END GENERATED: full_benchmark_coverage -->
 
 The headline is not the mean of the per-assay values. ProteinGym's 0.414 for
@@ -172,6 +177,11 @@ weakest thing that qualifies as alignment-based, which makes it a conservative
 test — if even this beats a 650M-parameter language model, the point stands.
 
 <!-- BEGIN GENERATED: viral_comparison -->
+| group | assays | alignment (ours) | alignment (published) | ESM-2 650M (published) | alignment beats ESM-2 |
+|---|---|---|---|---|---|
+| animal viruses | 24 | +0.408 | +0.398 | +0.168 | 21/24 |
+| bacteriophages | 7 | +0.328 | +0.268 | +0.615 | 1/7 |
+| all viral assays | 31 | +0.390 | +0.369 | +0.269 | 22/31 |
 <!-- END GENERATED: viral_comparison -->
 
 The result is more informative than a confirmation. Averaged over all 31 viral
@@ -219,6 +229,12 @@ read off the published table, are kept apart below.
 Nine assays through four checkpoints (`scripts/run_scaling_curve.py`):
 
 <!-- BEGIN GENERATED: scaling_local -->
+| model | assays | mean Spearman | sd |
+|---|---|---|---|
+| 8M | 9 | 0.179 | 0.147 |
+| 35M | 9 | 0.348 | 0.213 |
+| 150M | 9 | 0.474 | 0.161 |
+| 650M | 9 | 0.511 | 0.170 |
 <!-- END GENERATED: scaling_local -->
 
 Each step up is real — the paired differences are significant at every step —
@@ -229,6 +245,14 @@ of the answer: by 650M the model is near the plateau for this benchmark, so a
 ### Published: the 0.008 gap is real but tiny, and it is not a capacity effect
 
 <!-- BEGIN GENERATED: scaling_headline -->
+| model | params | headline | published_se |
+|---|---|---|---|
+| ESM2 (8M) | 8M | 0.226 | 0.015 |
+| ESM2 (35M) | 35M | 0.321 | 0.015 |
+| ESM2 (150M) | 150M | 0.387 | 0.013 |
+| ESM2 (650M) | 650M | 0.414 | 0.012 |
+| ESM2 (3B) | 3B | 0.406 | 0.011 |
+| ESM2 (15B) | 15B | 0.400 | 0.010 |
 <!-- END GENERATED: scaling_headline -->
 
 The headline gap of 0.008 sits inside the published bootstrap standard errors
@@ -237,12 +261,31 @@ of ~0.012, so an unpaired reading cannot call it real. A *paired* test over the
 larger than any model-to-model difference and is what dominates those SEs:
 
 <!-- BEGIN GENERATED: scaling_paired -->
+| comparison | mean diff | median diff | SE | paired t p | Wilcoxon p | W/L |
+|---|---|---|---|---|---|---|
+| ESM2 (3B) − ESM2 (650M) | -0.0061 | -0.0090 | +0.0052 | +0.2443 | +0.0223 | 96/118 |
+| ESM2 (15B) − ESM2 (650M) | -0.0130 | -0.0050 | +0.0073 | +0.0790 | +0.0198 | 100/116 |
+| ESM2 (650M) − ESM2 (150M) | +0.0377 | +0.0250 | +0.0062 | +0.0000 | +0.0000 | 152/63 |
+| ESM2 (150M) − ESM2 (35M) | +0.0817 | +0.0400 | +0.0088 | +0.0000 | +0.0000 | 174/41 |
+| ESM2 (15B) − ESM2 (3B) | -0.0069 | +0.0000 | +0.0045 | +0.1299 | +0.4016 | 108/107 |
 <!-- END GENERATED: scaling_paired -->
 
 So 3B is slightly but consistently worse on the average assay. The interesting
 part is what happens underneath, because it is not a uniform decline:
 
 <!-- BEGIN GENERATED: scaling_subgroups -->
+| split | 650M | 3B | 15B | 3B − 650M | 15B − 650M |
+|---|---|---|---|---|---|
+| Function_Stability | +0.523 | +0.509 | +0.488 | -0.014 | -0.035 |
+| High_MSA_depth | +0.513 | +0.485 | +0.467 | -0.028 | -0.046 |
+| Function_Binding | +0.337 | +0.321 | +0.317 | -0.016 | -0.020 |
+| Function_Activity | +0.425 | +0.417 | +0.405 | -0.008 | -0.020 |
+| Taxa_Human | +0.457 | +0.442 | +0.432 | -0.015 | -0.025 |
+| Taxa_Prokaryote | +0.458 | +0.458 | +0.436 | +0.000 | -0.022 |
+| Function_Expression | +0.415 | +0.403 | +0.405 | -0.012 | -0.010 |
+| Medium_MSA_depth | +0.409 | +0.423 | +0.422 | +0.014 | +0.013 |
+| Function_OrganismalFitness | +0.368 | +0.378 | +0.387 | +0.010 | +0.019 |
+| Taxa_Virus | +0.261 | +0.294 | +0.333 | +0.033 | +0.072 |
 <!-- END GENERATED: scaling_subgroups -->
 
 A model that had simply gotten worse would move every split down. Instead the
@@ -281,6 +324,11 @@ into buried, intermediate and exposed.
 **The hypothesis is wrong, and in the opposite direction.**
 
 <!-- BEGIN GENERATED: structure_burial -->
+| buried/exposed | n | Spearman | top-10 recall |
+|---|---|---|---|
+| buried | 3605 | +0.417 | +0.800 |
+| intermediate | 3235 | +0.317 | +0.300 |
+| exposed | 4167 | +0.282 | +0.100 |
 <!-- END GENERATED: structure_burial -->
 
 Spearman is *highest* at buried positions and lowest at exposed ones, and the
@@ -395,6 +443,85 @@ Two environment notes, both of which cost time to work out:
 - `pip_system_certs` breaks `huggingface_hub` with a `RecursionError` deep in
   `ssl.py`. If downloads fail that way, uninstall it from the environment.
 
+## What this work does not cover, and why
+
+Two things are out of scope, and both are declared rather than left as an
+untested guess. `scripts/run_scope_audit.py` measures what is actually on
+disk so the boundary is a number rather than an impression
+(`results/scope/summary.json`).
+
+<!-- BEGIN GENERATED: scope_audit -->
+| what | measured |
+|---|---|
+| assays in the benchmark | 217 |
+| assays scored on disk | 217 |
+| variants scanned | 2,465,767 |
+| variants not in substitution notation | 0 |
+| variants carrying a stop codon | 0 |
+| multi-substitution variants | 1,769,456 (71.8%) |
+| assays that are single-substitution only | 148 of 217 |
+| indel archive on disk | no |
+| clinical labels on disk | 0 |
+<!-- END GENERATED: scope_audit -->
+
+### Indels are out of scope
+
+Every variant in the benchmark is a substitution. Nothing in the pipeline can
+represent an insertion or a deletion: `mutations.parse_variant` accepts
+`A2M` and `A2M:K5R` and raises on `A2del`, `A2insG` and `A2_3delinsAA`, and
+`apply_variant` edits a position in a fixed-length string, so by construction
+the output sequence has the length of the input. That is a design constraint,
+not an untested corner.
+
+It is not a claim that indels do not matter, and it is not hidden by the data
+either: ProteinGym v1.3 distributes a separate indel benchmark
+(`DMS_ProteinGym_indels.zip`), which is deliberately not downloaded here. The
+reasons to leave it out:
+
+- **The scoring scheme does not extend.** ESM-2 masked marginals score the
+  likelihood of one residue given a fixed-length context. An insertion
+  changes the context for everything downstream, and there is no
+  position-masked comparison against a wild type that has the same length.
+  A defensible indel score needs an alignment-based or likelihood-ratio
+  formulation (the deletion case in particular requires summing over
+  alignment paths), which is a different method rather than a variant of
+  this one.
+- **The truth is a different quantity.** Indel DMS assays measure
+  frameshift tolerance and domain-disruption phenotypes, which are not
+  comparable to the missense fitness scale this project reproduces to three
+  decimals. Mixing them into the same aggregate would break the one thing
+  that makes the benchmark checkable.
+- **The published comparison would be uncontrolled.** ProteinGym's indel
+  leaderboard is a separate table with its own baselines; nothing here could
+  reproduce its numbers the way the missense table is reproduced.
+
+So: every conclusion in this README is about amino-acid substitutions in a
+wild-type-length protein. Nothing in it licenses a statement about an indel.
+
+### The clinical benchmark is out of scope
+
+This is a benchmark of *experimental* deep mutational scanning, not of
+clinical variant interpretation, and the difference is not cosmetic:
+
+- **The label is a DMS readout, not a diagnosis.** A DMS assay measures
+  growth, binding, fluorescence or abundance in a lab construct. A clinical
+  classification (pathogenic / benign / VUS) is a judgement about disease
+  risk that combines penetrance, zygosity, segregation, splicing and
+  population frequency. Nothing in this repo touches any of those.
+- **The sign conventions do not transfer.** DMS scores are
+  direction-normalised so higher means fitter *in that assay*; a variant that
+  abolishes an assay's activity is not thereby pathogenic, and a variant that
+  scores near wild type in a construct is not thereby benign.
+- **No clinical labels are on disk**, so there is nothing here to evaluate
+  against even if the mapping were sound. Adding one would mean a different
+  dataset (ClinVar, gnomAD), a different metric (precision at a clinical
+  threshold), and a different validation design.
+
+Where the misreading is most likely: the top-10 and viral sections report
+cases where this model would give a confident, wrong answer. Those are
+arguments *against* deploying it for clinical triage, and the numbers in this
+README should not be cited as support for clinical use.
+
 ## Still to do
 
 All four items from the earlier version of this list are done, and two of them
@@ -416,14 +543,22 @@ reversed what I expected. Details in the sections above and in
 
 What is still open:
 
-- The top-10 recall failure is not explained by burial. Section
-  "The top-k problem is not about burial" says what the data rules out; the
-  remaining candidates (epistasis, assay noise floor, the fact that the top
-  10% of a DMS assay is itself heterogeneous) are untested
-- Nothing here covers indels, and the clinical benchmark is not touched
-- Only one model family. ESM-C and the retrieval-augmented methods score ~0.44
-  and ~0.50 on this benchmark; the comparison would say whether the viral
-  split is about ESM-2 specifically or about any family-agnostic model
+- ~~The top-10 recall failure is not explained by burial~~ — done. It is the
+  assay's noise floor, not the model: `scripts/run_topk_analysis.py`. Truth
+  against truth across 37 replicate assay pairs gives a median top-10 recall
+  of 0.35 against the model's 0.32, and on 29 of those pairs the top decile's
+  entire spread is smaller than one measurement's error. The heterogeneity
+  candidate does not survive: decile shape does not predict top-10 recall
+  across the 217 assays
+- ~~Nothing here covers indels, and the clinical benchmark is not touched~~ —
+  declared out of scope in "What this work does not cover", with the reason
+  and a measurement of what is actually on disk
+- ~~Only one model family~~ — the viral split is a property of the training
+  objective, not of ESM-2: ESM-C scores 0.238 on virus against 0.465
+  elsewhere, the same -0.23 gap on a different architecture and different
+  training data. Every sequence-only method in the published table shows the
+  gap; the methods that do not are the ones that read an alignment of the
+  family. See "The viral split is not an ESM-2 artefact"
 
 ## Note on how this was built
 

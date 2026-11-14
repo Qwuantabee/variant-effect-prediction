@@ -1,0 +1,14 @@
+{
+  "assays_scored": 217,
+  "assays_on_disk": 217,
+  "variants_scanned": 2465767,
+  "variants_not_substitution_notation": 0,
+  "variants_with_stop_codon": 0,
+  "multi_substitution_variants": 1769456,
+  "single_substitution_variants": 696311,
+  "assays_all_single_substitution": 148,
+  "reference_multiple_mutants": 1769456,
+  "reference_total_mutants": 2465767,
+  "clinical_labels_on_disk": 0,
+  "indel_archive_present": false
+}
