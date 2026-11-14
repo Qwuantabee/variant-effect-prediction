@@ -233,7 +233,7 @@ def _save(fig, name):
     out = FIG / name
     fig.savefig(out, dpi=150)
     plt.close(fig)
-    print(f"wrote {out.relative_to(ROOT)}")
+    print("wrote", out.relative_to(ROOT) if out.is_relative_to(ROOT) else out)
 
 
 # ---- a) the pooled target raises the model's rank correlation --------------
