@@ -53,6 +53,23 @@ DIFFERENT_QUANTITY = {
                "P53_HUMAN_Giacomelli_2018_WT_Nutlin")),
     frozenset(("P53_HUMAN_Giacomelli_2018_Null_Nutlin",
                "P53_HUMAN_Giacomelli_2018_WT_Nutlin")),
+    # Added 2026-11-14 on Mark's decision (msg 36447: "yes to all"). These
+    # five are not hand-curated judgements of our own: the reference table's
+    # coarse_selection_type already differs across each pair (Activity vs
+    # OrganismalFitness), so leaving them in the same-quantity subset meant
+    # calling two different quantities replicate measurements of one. The
+    # latent same-quantity subset drops from 18 pairs to 13; the total stays
+    # 32, because every one of these pairs was already in it incorrectly.
+    frozenset(("CCDB_ECOLI_Adkar_2012",
+               "CCDB_ECOLI_Tripathi_2016")),
+    frozenset(("RL40A_YEAST_Mavor_2016",
+               "RL40A_YEAST_Roscoe_2014")),
+    frozenset(("RL40A_YEAST_Roscoe_2013",
+               "RL40A_YEAST_Roscoe_2014")),
+    frozenset(("SRC_HUMAN_Ahler_2019",
+               "SRC_HUMAN_Nguyen_2022")),
+    frozenset(("SRC_HUMAN_Chakraborty_2023_binding-DAS_25uM",
+               "SRC_HUMAN_Nguyen_2022")),
 }
 
 # Same biology, different reported scale. The reference table's
