@@ -4,7 +4,35 @@
       "protein": "RASK_HUMAN",
       "assay_a": "RASK_HUMAN_Weng_2022_abundance",
       "assay_b": "RASK_HUMAN_Weng_2022_binding-DARPin_K55",
-      "role": "primary",
+      "role": "larger pair; DIFFERENT quantity (abundance vs binding)",
+      "pair_status": {
+        "different_quantity": true,
+        "different_scale": false,
+        "reference_coarse_differs": true,
+        "parallel": false,
+        "reasons": [
+          "hand-curated DIFFERENT_QUANTITY list",
+          "reference coarse_selection_type differs: Expression vs Binding"
+        ]
+      },
+      "join": {
+        "exact_string_intersection": 23072,
+        "canonical_intersection": 23072,
+        "dropped_by_exact_string_join": 0,
+        "exact_is_subset_of_canonical": true,
+        "RASK_HUMAN_Weng_2022_abundance": {
+          "rows_read": 26012,
+          "singles_doubles_finite": 26012,
+          "duplicates_dropped_first_kept": 0,
+          "unparseable_notations": 0
+        },
+        "RASK_HUMAN_Weng_2022_binding-DARPin_K55": {
+          "rows_read": 24873,
+          "singles_doubles_finite": 24873,
+          "duplicates_dropped_first_kept": 0,
+          "unparseable_notations": 0
+        }
+      },
       "shared": 23072,
       "shared_singles": 2948,
       "shared_doubles": 20124,
@@ -13,23 +41,41 @@
         {
           "stratum": "all",
           "n": 23072,
+          "parallel_pair": false,
           "split_half_spearman": 0.3860023350447603,
-          "pooled_reliability": 0.5570009880716319,
-          "per_assay_noise_sd_z": 0.8053751354863892
+          "pooled_reliability": NaN,
+          "per_assay_noise_sd_z": 0.8053751354863892,
+          "pearson_z_a_z_b": 0.35137089114028003,
+          "sd_z_a": 0.9999999999999998,
+          "sd_z_b": 1.0,
+          "corr_pooled_z_with_a": 0.8220008793001015,
+          "corr_pooled_z_with_b": 0.8220008793001012
         },
         {
           "stratum": "singles",
           "n": 2948,
+          "parallel_pair": false,
           "split_half_spearman": 0.47772615911268684,
-          "pooled_reliability": 0.6465692661210539,
-          "per_assay_noise_sd_z": 0.7954365704796078
+          "pooled_reliability": NaN,
+          "per_assay_noise_sd_z": 0.7954365704796078,
+          "pearson_z_a_z_b": 0.36728066234363993,
+          "sd_z_a": 0.9147074198963826,
+          "sd_z_b": 0.7984843935521643,
+          "corr_pooled_z_with_a": 0.8518757392817231,
+          "corr_pooled_z_with_b": 0.8000170560924922
         },
         {
           "stratum": "doubles",
           "n": 20124,
+          "parallel_pair": false,
           "split_half_spearman": 0.3478065961209971,
-          "pooled_reliability": 0.5161075737750335,
-          "per_assay_noise_sd_z": 0.8221653282823818
+          "pooled_reliability": NaN,
+          "per_assay_noise_sd_z": 0.8221653282823818,
+          "pearson_z_a_z_b": 0.3240441729703233,
+          "sd_z_a": 0.9976046387766485,
+          "sd_z_b": 0.9969054682184898,
+          "corr_pooled_z_with_a": 0.813792983980343,
+          "corr_pooled_z_with_b": 0.8135017587792287
         }
       ]
     },
@@ -37,32 +83,77 @@
       "protein": "SPG1_STRSG",
       "assay_a": "SPG1_STRSG_Olson_2014",
       "assay_b": "SPG1_STRSG_Wu_2016",
-      "role": "replication",
-      "shared": 1458,
+      "role": "smaller pair; same biology, different scale (lnW vs Fitness)",
+      "pair_status": {
+        "different_quantity": false,
+        "different_scale": true,
+        "reference_coarse_differs": false,
+        "parallel": false,
+        "reasons": [
+          "different scale: lnW (Olson 2014) vs Fitness (Wu 2016)"
+        ]
+      },
+      "join": {
+        "exact_string_intersection": 1458,
+        "canonical_intersection": 2167,
+        "dropped_by_exact_string_join": 709,
+        "exact_is_subset_of_canonical": true,
+        "SPG1_STRSG_Olson_2014": {
+          "rows_read": 536962,
+          "singles_doubles_finite": 536962,
+          "duplicates_dropped_first_kept": 0,
+          "unparseable_notations": 0
+        },
+        "SPG1_STRSG_Wu_2016": {
+          "rows_read": 149360,
+          "singles_doubles_finite": 2167,
+          "duplicates_dropped_first_kept": 0,
+          "unparseable_notations": 0
+        }
+      },
+      "shared": 2167,
       "shared_singles": 76,
-      "shared_doubles": 1382,
+      "shared_doubles": 2091,
       "positions_scored": 4,
       "reliability": [
         {
           "stratum": "all",
-          "n": 1458,
-          "split_half_spearman": 0.8908096380891009,
-          "pooled_reliability": 0.9422520597994997,
-          "per_assay_noise_sd_z": 0.5049910112237204
+          "n": 2167,
+          "parallel_pair": false,
+          "split_half_spearman": 0.9057920617718562,
+          "pooled_reliability": NaN,
+          "per_assay_noise_sd_z": 0.4923947089173161,
+          "pearson_z_a_z_b": 0.7575474506302314,
+          "sd_z_a": 0.9999999999999999,
+          "sd_z_b": 0.9999999999999999,
+          "corr_pooled_z_with_a": 0.93742931750352,
+          "corr_pooled_z_with_b": 0.9374293175035201
         },
         {
           "stratum": "singles",
           "n": 76,
+          "parallel_pair": false,
           "split_half_spearman": 0.9980431982454016,
-          "pooled_reliability": 0.9990206409169148,
-          "per_assay_noise_sd_z": 0.44108512413524775
+          "pooled_reliability": NaN,
+          "per_assay_noise_sd_z": 0.44108512413524775,
+          "pearson_z_a_z_b": 0.805443913266593,
+          "sd_z_a": 1.127599554715787,
+          "sd_z_b": 1.383252056919644,
+          "corr_pooled_z_with_a": 0.9391675759312371,
+          "corr_pooled_z_with_b": 0.9600054958795501
         },
         {
           "stratum": "doubles",
-          "n": 1382,
-          "split_half_spearman": 0.8821261002562641,
-          "pooled_reliability": 0.9373719435017205,
-          "per_assay_noise_sd_z": 0.5138492343197556
+          "n": 2091,
+          "parallel_pair": false,
+          "split_half_spearman": 0.9010116209948602,
+          "pooled_reliability": NaN,
+          "per_assay_noise_sd_z": 0.4967116237349548,
+          "pearson_z_a_z_b": 0.7532775628465852,
+          "sd_z_a": 0.9898776481628684,
+          "sd_z_b": 0.9790583202310451,
+          "corr_pooled_z_with_a": 0.9370119091208502,
+          "corr_pooled_z_with_b": 0.9355639174100545
         }
       ]
     }
@@ -73,28 +164,166 @@
   "top_frac": 0.1,
   "n_boot": 1000,
   "pooled_only": false,
+  "resampling_unit": "position: positions drawn with replacement, variants weighted by the product of their positions' multiplicities, one draw shared by both strata",
+  "primary_target": "pooled_rank",
+  "targets": [
+    "pooled_rank",
+    "pooled_z",
+    "assay_a",
+    "assay_b"
+  ],
   "verdict": {
     "RASK_HUMAN": {
-      "state": "better_on_doubles",
-      "gap_spearman": -0.08830489184330192,
+      "state": "not_distinguishable",
+      "gap_spearman": -0.07255279906166612,
       "gap_ci": [
-        -0.12311825705354419,
-        -0.056699130496746034
+        -0.1799752526339436,
+        0.03857834148498233
       ],
       "n_singles": 2948,
       "n_doubles": 20124,
-      "target_note": "doubles reliability 0.52"
+      "target_note": "reliability not defined: the two assays are not parallel measures of one quantity",
+      "target": "pooled_rank",
+      "range_matched_gap": 0.030892692062091998,
+      "range_matched_ci": [
+        -0.08193315060883814,
+        0.139191965767099
+      ],
+      "range_matched_state": "not_distinguishable",
+      "pair_note": "NOT A REPLICATE PAIR: hand-curated DIFFERENT_QUANTITY list; reference coarse_selection_type differs: Expression vs Binding"
+    },
+    "RASK_HUMAN|pooled_z": {
+      "state": "not_distinguishable",
+      "gap_spearman": -0.08830489184330192,
+      "gap_ci": [
+        -0.19186157326143125,
+        0.01736639817682548
+      ],
+      "n_singles": 2948,
+      "n_doubles": 20124,
+      "target_note": "reliability not defined: the two assays are not parallel measures of one quantity",
+      "target": "pooled_z",
+      "range_matched_gap": 0.01235445022538112,
+      "range_matched_ci": [
+        -0.10079778708458971,
+        0.11868512141471849
+      ],
+      "range_matched_state": "not_distinguishable",
+      "pair_note": "NOT A REPLICATE PAIR: hand-curated DIFFERENT_QUANTITY list; reference coarse_selection_type differs: Expression vs Binding"
+    },
+    "RASK_HUMAN|assay_a": {
+      "state": "not_distinguishable",
+      "gap_spearman": -0.05918933062145118,
+      "gap_ci": [
+        -0.21580557291218214,
+        0.10547315193605435
+      ],
+      "n_singles": 2948,
+      "n_doubles": 20124,
+      "target_note": "reliability not defined: the two assays are not parallel measures of one quantity",
+      "target": "assay_a",
+      "range_matched_gap": 0.0025581259285291646,
+      "range_matched_ci": [
+        -0.16267901305999738,
+        0.13710591664898708
+      ],
+      "range_matched_state": "not_distinguishable",
+      "pair_note": "NOT A REPLICATE PAIR: hand-curated DIFFERENT_QUANTITY list; reference coarse_selection_type differs: Expression vs Binding"
+    },
+    "RASK_HUMAN|assay_b": {
+      "state": "not_distinguishable",
+      "gap_spearman": -0.07316053175668336,
+      "gap_ci": [
+        -0.1611249911571153,
+        0.02070407544841058
+      ],
+      "n_singles": 2948,
+      "n_doubles": 20124,
+      "target_note": "reliability not defined: the two assays are not parallel measures of one quantity",
+      "target": "assay_b",
+      "range_matched_gap": -0.009298416142509147,
+      "range_matched_ci": [
+        -0.09550771745680359,
+        0.10086064969129548
+      ],
+      "range_matched_state": "not_distinguishable",
+      "pair_note": "NOT A REPLICATE PAIR: hand-curated DIFFERENT_QUANTITY list; reference coarse_selection_type differs: Expression vs Binding"
     },
     "SPG1_STRSG": {
       "state": "not_distinguishable",
-      "gap_spearman": 0.16752620547552055,
+      "gap_spearman": 0.1370949288835645,
       "gap_ci": [
-        -0.0345099644516221,
-        0.33501605611732904
+        -0.07464160538786063,
+        0.5932131515380892
       ],
       "n_singles": 76,
-      "n_doubles": 1382,
-      "target_note": "doubles reliability 0.94"
+      "n_doubles": 2091,
+      "target_note": "reliability not defined: the two assays are not parallel measures of one quantity",
+      "target": "pooled_rank",
+      "range_matched_gap": 0.2263941404423494,
+      "range_matched_ci": [
+        0.09138103562855776,
+        0.4646797474653168
+      ],
+      "range_matched_state": "degrades",
+      "pair_note": "NOT A REPLICATE PAIR: different scale: lnW (Olson 2014) vs Fitness (Wu 2016)"
+    },
+    "SPG1_STRSG|pooled_z": {
+      "state": "not_distinguishable",
+      "gap_spearman": 0.1368924010227341,
+      "gap_ci": [
+        -0.07127872256195097,
+        0.6010732231026221
+      ],
+      "n_singles": 76,
+      "n_doubles": 2091,
+      "target_note": "reliability not defined: the two assays are not parallel measures of one quantity",
+      "target": "pooled_z",
+      "range_matched_gap": 0.23360599028419538,
+      "range_matched_ci": [
+        0.10534845492141931,
+        0.47548575508864716
+      ],
+      "range_matched_state": "degrades",
+      "pair_note": "NOT A REPLICATE PAIR: different scale: lnW (Olson 2014) vs Fitness (Wu 2016)"
+    },
+    "SPG1_STRSG|assay_a": {
+      "state": "not_distinguishable",
+      "gap_spearman": 0.13321247839713907,
+      "gap_ci": [
+        -0.08736101678619687,
+        0.5277953593451862
+      ],
+      "n_singles": 76,
+      "n_doubles": 2091,
+      "target_note": "reliability not defined: the two assays are not parallel measures of one quantity",
+      "target": "assay_a",
+      "range_matched_gap": 0.20313259369196013,
+      "range_matched_ci": [
+        0.07269782050897566,
+        0.4569191287300312
+      ],
+      "range_matched_state": "degrades",
+      "pair_note": "NOT A REPLICATE PAIR: different scale: lnW (Olson 2014) vs Fitness (Wu 2016)"
+    },
+    "SPG1_STRSG|assay_b": {
+      "state": "not_distinguishable",
+      "gap_spearman": 0.15288742633688118,
+      "gap_ci": [
+        -0.05720844592231575,
+        0.5813913817014105
+      ],
+      "n_singles": 76,
+      "n_doubles": 2091,
+      "target_note": "reliability not defined: the two assays are not parallel measures of one quantity",
+      "target": "assay_b",
+      "range_matched_gap": 0.2751207768365608,
+      "range_matched_ci": [
+        0.13544985527557513,
+        0.6284313614048643
+      ],
+      "range_matched_state": "degrades",
+      "pair_note": "NOT A REPLICATE PAIR: different scale: lnW (Olson 2014) vs Fitness (Wu 2016)"
     }
   }
 }

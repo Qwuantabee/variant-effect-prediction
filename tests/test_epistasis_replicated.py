@@ -329,3 +329,280 @@ def test_score_from_table_is_the_sum_of_independent_site_log_odds():
     assert double[0] == pytest.approx(-2.0)
     with pytest.raises(KeyError):
         rep.score_from_table(table, ["A9V"])
+
+
+
+# ======================================================================
+# Review fixes (C1 C2 C3 C4 C8 C9): tests that fail on the old code
+# ======================================================================
+
+def _write_assay(dirpath, name, rows):
+    pd.DataFrame(rows, columns=["mutant", "DMS_score"]).to_csv(
+        dirpath / f"{name}.csv", index=False)
+
+
+@pytest.fixture
+def reversed_order_assays(tmp_path, monkeypatch):
+    """Two assays of one protein: the same 40 doubles, but assay A writes half
+    of them in reverse position order (Olson 2014) and assay B always writes
+    them position-ordered (Wu 2016). 30 singles written identically."""
+    rng = np.random.default_rng(0)
+    a_rows, b_rows = [], []
+    for p in range(1, 31):
+        m = f"A{p}V"
+        a_rows.append((m, rng.normal()))
+        b_rows.append((m, rng.normal()))
+    for i in range(40):
+        p = i + 1
+        fwd = f"A{p}V:G{p + 1}L"
+        rev = f"G{p + 1}L:A{p}V"
+        a_rows.append((rev if i % 2 else fwd, rng.normal()))
+        b_rows.append((fwd, rng.normal()))
+    monkeypatch.setattr(rep.data, "ASSAY_DIR", tmp_path)
+    _write_assay(tmp_path, "X_A", a_rows)
+    _write_assay(tmp_path, "X_B", b_rows)
+    return "X_A", "X_B"
+
+
+def test_load_pair_keeps_doubles_spelled_in_opposite_orders(
+        reversed_order_assays):
+    """The SPG1 bug (C4): a join on the raw string drops every double the two
+    labs wrote in different substitution orders. 20 of the 40 doubles are
+    reversed in assay A."""
+    a, b = reversed_order_assays
+    merged = rep.load_pair(a, b)
+    assert int((merged.n_sub == 2).sum()) == 40
+    assert int((merged.n_sub == 1).sum()) == 30
+    assert merged["mutant"].is_unique
+
+
+def test_join_report_exact_is_strictly_smaller_than_canonical_on_reversal(
+        reversed_order_assays):
+    a, b = reversed_order_assays
+    j = rep.join_report(a, b)
+    assert j["canonical_intersection"] == 70
+    assert j["exact_string_intersection"] == 50
+    assert j["dropped_by_exact_string_join"] == 20
+    assert j["exact_is_subset_of_canonical"] is True
+
+
+def test_load_pair_counts_duplicates_instead_of_hiding_them(tmp_path,
+                                                            monkeypatch):
+    """C12: a variant written twice (here as two orderings) keeps its first
+    row, and the count is reported rather than silent."""
+    rows_a = [("A1V", 1.0), ("A2V:G3L", 1.0), ("G3L:A2V", 9.0)]
+    rows_b = [("A1V", 1.0), ("A2V:G3L", 2.0)]
+    monkeypatch.setattr(rep.data, "ASSAY_DIR", tmp_path)
+    _write_assay(tmp_path, "D_A", rows_a)
+    _write_assay(tmp_path, "D_B", rows_b)
+    merged = rep.load_pair("D_A", "D_B")
+    assert len(merged) == 2
+    row = merged[merged["mutant"] == "A2V:G3L"].iloc[0]
+    assert row["score_D_A"] == 1.0                 # the first row kept
+    assert rep.join_report("D_A", "D_B")["D_A"]["duplicates_dropped_first_kept"] == 1
+
+
+def _read_raw(assay):
+    d = pd.read_csv(rep.data.ASSAY_DIR / f"{assay}.csv",
+                    usecols=["mutant", "DMS_score"])
+    d = d[np.isfinite(d["DMS_score"])]
+    d = d[d["mutant"].str.count(":") <= 1]
+    return d
+
+
+def _independent_canonical(m):
+    """Written separately from resampling.canonical_mutant on purpose."""
+    return ":".join(sorted(m.split(":"), key=lambda s: int(s[1:-1])))
+
+
+def test_spg1_canonical_join_matches_an_independent_recomputation(require_data):
+    """On the real SPG1 pair the exact-string join loses doubles. The expected
+    set is recomputed here with a separate implementation, and the loader's
+    docstring claim (exact == canonical) is checked, not trusted."""
+    pair = rep.PAIRS["spg1"]
+    require_data((rep.data.ASSAY_DIR / f"{pair['assay_a']}.csv").exists(),
+                 "SPG1 assays are not downloaded (run src/variant_effect/data.py)")
+    a, b = _read_raw(pair["assay_a"]), _read_raw(pair["assay_b"])
+    exact = set(a["mutant"]) & set(b["mutant"])
+    canon = ({_independent_canonical(m) for m in a["mutant"]}
+             & {_independent_canonical(m) for m in b["mutant"]})
+    merged = rep.load_pair(pair["assay_a"], pair["assay_b"])
+    assert set(merged["mutant"]) == canon
+    assert len(canon) > len(exact) > 0
+    j = rep.join_report(pair["assay_a"], pair["assay_b"])
+    assert j["exact_string_intersection"] == len(exact)
+    assert j["canonical_intersection"] == len(canon)
+
+
+def test_rask_exact_and_canonical_joins_agree(require_data):
+    """RASK never needed the canonical join; recorded so that is a measurement."""
+    pair = rep.PAIRS["rask"]
+    require_data((rep.data.ASSAY_DIR / f"{pair['assay_a']}.csv").exists(),
+                 "RASK assays are not downloaded")
+    j = rep.join_report(pair["assay_a"], pair["assay_b"])
+    assert j["exact_string_intersection"] == j["canonical_intersection"]
+
+
+def test_f7ybw8_pair_is_declared_skipped_because_the_data_say_so(require_data):
+    """The skip reason is re-derived from the CSVs on the canonical key, not
+    read back from the constant that states it."""
+    a, b = "F7YBW8_MESOW_Aakre_2015", "F7YBW8_MESOW_Ding_2023"
+    require_data((rep.data.ASSAY_DIR / f"{a}.csv").exists(),
+                 "F7YBW8 assays are not downloaded")
+    j = rep.join_report(a, b)
+    assert j["canonical_intersection"] == 0
+    assert j["exact_string_intersection"] == 0
+    assert "F7YBW8_MESOW" in rep.SKIPPED
+
+
+def test_both_pairs_are_tagged_not_parallel_by_the_registry():
+    for key in ("rask", "spg1"):
+        p = rep.PAIRS[key]
+        st = rep.quantity.pair_status(p["assay_a"], p["assay_b"])
+        assert st["parallel"] is False, key
+    assert rep.quantity.pair_status(
+        rep.PAIRS["rask"]["assay_a"],
+        rep.PAIRS["rask"]["assay_b"])["different_quantity"] is True
+
+
+def _synthetic_two_assay_frame(n_pos=40, per_double=25, seed=0):
+    """Singles + doubles on shared positions, with a per-position-PAIR effect
+    in the doubles' truth and no within-pair variation (the clustered case)."""
+    rng = np.random.default_rng(seed)
+    rows = []
+    for p in range(1, n_pos + 1):
+        t = rng.normal()
+        rows.append((f"A{p}V", 1, t + rng.normal(0, .2), t + rng.normal(0, .2),
+                     t + rng.normal(0, 0.8)))
+    for p in range(1, n_pos):
+        eff = rng.normal()
+        pe = 0.5 * eff + rng.normal()
+        for _ in range(per_double):
+            rows.append((f"A{p}V:G{p + 1}L", 2, eff + rng.normal(0, .02),
+                         eff + rng.normal(0, .02), pe))
+    # the doubles rows have repeated mutant strings by construction; make them
+    # unique with a distinct third-site-free spelling per row
+    df = pd.DataFrame(rows, columns=["mutant", "n_sub", "A", "B", "model"])
+    df["mutant"] = [f"{m}" for m in df["mutant"]]
+    return df
+
+
+def test_stratified_reports_four_targets_with_position_clustered_intervals():
+    """Shape of the output, and the review's central point (C2): the interval
+    comes from a position bootstrap, so it is wider than the variant-level one
+    on a frame whose doubles carry only a per-pair effect."""
+    df = _synthetic_two_assay_frame()
+    df = df.rename(columns={"A": "score_AA", "B": "score_BB"})
+    df = rep.pooled_frame(df, "AA", "BB")
+    pair = {"protein": "SYN", "role": "test", "assay_a": "AA", "assay_b": "BB"}
+    rows, gaps = rep.stratified(pair, df, df["model"].to_numpy(), 40,
+                                n_boot=120)
+    assert {g["target"] for g in gaps} == set(rep.TARGETS)
+    assert {r["target"] for r in rows} == set(rep.TARGETS)
+    assert len(rows) == 2 * len(rep.TARGETS)
+    g = next(x for x in gaps if x["target"] == rep.PRIMARY_TARGET)
+    assert g["is_primary_target"] and g["n_position_clusters"] == 40
+    assert np.isfinite(g["range_matched_gap"])
+
+    s = df[df.n_sub == 1]
+    d = df[df.n_sub == 2]
+    kw = dict(n_boot=120, seed=0)
+    pt_v, lo_v, hi_v = rep.bootstrap_gap((s["model"], s["pooled_rank"]),
+                                         (d["model"], d["pooled_rank"]), **kw)
+    pt_c, lo_c, hi_c = rep.bootstrap_gap(
+        (s["model"], s["pooled_rank"]), (d["model"], d["pooled_rank"]),
+        mutants_s=s["mutant"].tolist(), mutants_d=d["mutant"].tolist(), **kw)
+    assert pt_v == pytest.approx(pt_c)
+    assert (hi_c - lo_c) > 1.5 * (hi_v - lo_v)
+    # and stratified() used the clustered one
+    assert (g["gap_spearman_hi"] - g["gap_spearman_lo"]) > 1.5 * (hi_v - lo_v)
+
+
+def test_bootstrap_gap_with_mutants_is_a_position_bootstrap_not_variant_level():
+    """Zero within-position variation: identical rows per position. The
+    variant-level interval is spuriously tight."""
+    n_pos, per = 30, 40
+    rng = np.random.default_rng(3)
+    tr = np.repeat(rng.normal(size=n_pos), per)
+    pr = np.repeat(rng.normal(size=n_pos) * 0.3, per) + 0.3 * tr
+    muts_d = [f"A{p}V:G{p + 1}L" for p in range(1, n_pos + 1) for _ in range(per)]
+    muts_s = [f"A{p}V" for p in range(1, 41)]
+    ts_ = rng.normal(size=40)
+    ps_ = ts_ + rng.normal(size=40)
+    _, lo_v, hi_v = rep.bootstrap_gap((ps_, ts_), (pr, tr), n_boot=150)
+    _, lo_c, hi_c = rep.bootstrap_gap((ps_, ts_), (pr, tr), n_boot=150,
+                                      mutants_s=muts_s, mutants_d=muts_d)
+    assert (hi_c - lo_c) > 1.5 * (hi_v - lo_v)
+
+
+def test_reliability_report_withholds_spearman_brown_for_a_non_parallel_pair():
+    df = _synthetic_two_assay_frame(per_double=3)
+    df = df.rename(columns={"A": "score_AA", "B": "score_BB"})
+    df = rep.pooled_frame(df, "AA", "BB")
+    par = rep.reliability_report(df, "AA", "BB", parallel=True)
+    non = rep.reliability_report(df, "AA", "BB", parallel=False)
+    assert np.isfinite(par[0]["pooled_reliability"])
+    assert all(np.isnan(r["pooled_reliability"]) for r in non)
+    assert all(np.isfinite(r["split_half_spearman"]) for r in non)
+    assert {"pearson_z_a_z_b", "corr_pooled_z_with_a"} <= set(non[0])
+
+
+def test_verdict_prints_a_loud_note_for_a_non_parallel_pair_and_the_controlled_state():
+    g = {**_gap_row(0.1, -0.2, 0.3), "target": "pooled_rank",
+         "pair_parallel": False, "pair_reasons": "hand-curated list",
+         "range_matched_gap": 0.01, "range_matched_gap_lo": -0.1,
+         "range_matched_gap_hi": 0.12}
+    rel = [{"protein": "TEST", "stratum": "doubles",
+            "pooled_reliability": np.nan, "parallel_pair": False}]
+    v = rep.verdict_text([], [g], rel)["TEST"]
+    assert v["pair_note"].startswith("NOT A REPLICATE PAIR")
+    assert "not parallel" in v["target_note"]
+    assert v["range_matched_state"] == "not_distinguishable"
+
+
+def test_verdict_keys_non_primary_targets_separately():
+    base = _gap_row(0.0, -0.1, 0.1)
+    v = rep.verdict_text([], [{**base, "target": "assay_a"},
+                              {**base, "target": rep.PRIMARY_TARGET}], _rel(0.9))
+    assert set(v) == {"TEST", "TEST|assay_a"}
+
+
+def test_pooled_frame_adds_the_rank_pool_and_it_differs_from_the_z_pool():
+    rng = np.random.default_rng(4)
+    a = rng.normal(size=300)
+    b = np.exp(2 * (a + rng.normal(size=300)))
+    df = pd.DataFrame({"mutant": [f"A{i + 1}V" for i in range(300)],
+                       "n_sub": 1, "score_A": a, "score_B": b})
+    out = rep.pooled_frame(df, "A", "B")
+    assert "pooled_rank" in out and np.isfinite(out["pooled_rank"]).all()
+    assert not np.allclose(out["pooled_rank"], out["pooled"])
+    # rank pool is invariant to the monotone transform of assay B
+    out2 = rep.pooled_frame(df.assign(score_B=np.log(b)), "A", "B")
+    assert np.allclose(out["pooled_rank"], out2["pooled_rank"])
+
+
+def test_masked_table_does_not_load_the_model_when_everything_is_cached(
+        tmp_path):
+    """Rescoring from the cache must not need ESM-2 (and must not need a GPU)."""
+    positions = [3, 5]
+    arr = np.arange(40, dtype=np.float32).reshape(2, 20)
+    path = tmp_path / "P.npz"
+    np.savez(path, positions=np.array(positions), table=arr)
+    table = rep.masked_table(None, "ACDEFGHIK", positions, path)
+    assert set(table) == {3, 5}
+    assert np.allclose(table[5], arr[1])
+
+
+def test_verdict_refuses_to_read_an_interval_resampled_from_a_handful_of_positions():
+    """SPG1 sits on 4 positions. A position bootstrap over 4 clusters is not an
+    interval for anything, so the state must not be 'degrades' even when the
+    percentile interval happens to exclude zero."""
+    g = {**_gap_row(0.2, 0.05, 0.35), "n_position_clusters": 4,
+         "range_matched_gap": 0.2, "range_matched_gap_lo": 0.1,
+         "range_matched_gap_hi": 0.3}
+    v = rep.verdict_text([], [g], _rel(0.9))["TEST"]
+    assert v["state"] == "insufficient_clusters"
+    assert v["range_matched_state"] == "insufficient_clusters"
+    g["n_position_clusters"] = 185
+    v = rep.verdict_text([], [g], _rel(0.9))["TEST"]
+    assert v["state"] == "degrades"

@@ -381,10 +381,10 @@ def epistasis_table():
         "gap (single - multi)": [f"{v:+.3f}" for v in gaps["gap_rho"]],
         "range-matched gap": [f"{v:+.3f}"
                               for v in gaps["range_matched_gap"]],
-        "epistasis variance share": [
+        "non-additive residual share (includes noise)": [
             f"{v:.3f}" for v in
             per.drop_duplicates("assay").set_index("assay")
-            .loc[gaps["assay"], "epistasis_var_share"]],
+            .loc[gaps["assay"], "nonadditive_residual_var_share"]],
     })
 
     return (fmt_table(combined, floatfmt="{:+.3f}") + "\n\n" +
@@ -393,62 +393,99 @@ def epistasis_table():
 
 
 def epistasis_replicated_table():
-    """Singles vs doubles against a *pooled two-assay* target, from
+    """Singles vs doubles against pooled two-assay targets, from
     results/epistasis_replicated.
 
-    Separate from ``epistasis_table`` on purpose. That one compares two
-    different variant sets inside one assay, so a stratum difference can be a
-    difference in the measured quantity. This one intersects two assays of the
-    same protein, pools them into a lower-noise target, and then compares
-    singles against doubles on the same shared variant list. Every number is
-    read from the run's CSVs.
+    Separate from epistasis_table on purpose. That one compares two different
+    variant sets inside one assay, so a stratum difference can be a difference
+    in the measured quantity. This one intersects two assays of the same
+    protein and compares singles against doubles on the same shared variant
+    list. Neither pair is a clean replicate pair (the first table says why),
+    so four targets are shown side by side and every interval is resampled by
+    POSITION. Every number is read from the run's CSVs and manifest.
     """
-    per_path = ROOT / "results" / "epistasis_replicated" / "per_stratum.csv"
-    rel_path = ROOT / "results" / "epistasis_replicated" / "reliability.csv"
-    gap_path = ROOT / "results" / "epistasis_replicated" / "gaps.csv"
-    if not (per_path.exists() and rel_path.exists() and gap_path.exists()):
+    import json
+    base = ROOT / "results" / "epistasis_replicated"
+    per_path = base / "per_stratum.csv"
+    rel_path = base / "reliability.csv"
+    gap_path = base / "gaps.csv"
+    man_path = base / "manifest.json"
+    if not (per_path.exists() and rel_path.exists() and gap_path.exists()
+            and man_path.exists()):
         return None
 
     per = pd.read_csv(per_path)
     rel = pd.read_csv(rel_path)
     gaps = pd.read_csv(gap_path)
+    man = json.loads(man_path.read_text())
 
-    rows = per[["protein", "stratum", "n"]].copy()
-    rows["spearman"] = [
-        f"{v:+.3f} [{lo:+.3f}, {hi:+.3f}]" if np.isfinite(v) else "n/a"
-        for v, lo, hi in zip(per["spearman"], per["spearman_lo"],
-                             per["spearman_hi"])]
+    def ci(v, lo, hi):
+        return (f"{v:+.3f} [{lo:+.3f}, {hi:+.3f}]" if np.isfinite(v)
+                else "n/a")
+
+    pair_rows = []
+    for key, p in man["pairs"].items():
+        st, jn = p["pair_status"], p["join"]
+        pair_rows.append({
+            "protein": p["protein"],
+            "pair": f"{p['assay_a'].split('_', 2)[2]} vs "
+                    f"{p['assay_b'].split('_', 2)[2]}",
+            "parallel measures": "yes" if st["parallel"] else "NO",
+            "why not": "; ".join(st["reasons"]) or "-",
+            "shared singles / doubles": (f"{p['shared_singles']:,} / "
+                                         f"{p['shared_doubles']:,}"),
+            "exact-string join": f"{jn['exact_string_intersection']:,}",
+            "canonical join": f"{jn['canonical_intersection']:,}",
+        })
+    table_pairs = fmt_table(pd.DataFrame(pair_rows))
+
+    rows = per[["protein", "target", "stratum", "n"]].copy()
+    rows["spearman [position CI]"] = [
+        ci(v, lo, hi) for v, lo, hi in zip(per["spearman"], per["spearman_lo"],
+                                           per["spearman_hi"])]
     rows["top-decile recall"] = [
         "n/a" if not np.isfinite(v) else f"{v:.3f}"
         for v in per["top_decile_recall"]]
     rows["n"] = [f"{int(v):,}" for v in rows["n"]]
     table_a = fmt_table(rows)
 
-    rel_rows = rel[["protein", "stratum", "n", "split_half_spearman",
-                    "pooled_reliability"]].copy()
-    rel_rows["n"] = [f"{int(v):,}" for v in rel_rows["n"]]
-    for col in ("split_half_spearman", "pooled_reliability"):
-        rel_rows[col] = ["n/a" if not np.isfinite(v) else f"{v:.3f}"
-                         for v in rel_rows[col]]
-    rel_rows = rel_rows.rename(columns={
-        "split_half_spearman": "split-half spearman",
-        "pooled_reliability": "pooled reliability"})
+    rr = rel[["protein", "stratum", "n", "split_half_spearman",
+              "pearson_z_a_z_b", "pooled_reliability",
+              "corr_pooled_z_with_a", "corr_pooled_z_with_b"]].copy()
+    rr["n"] = [f"{int(v):,}" for v in rr["n"]]
+    for col in ("split_half_spearman", "pearson_z_a_z_b",
+                "pooled_reliability", "corr_pooled_z_with_a",
+                "corr_pooled_z_with_b"):
+        rr[col] = ["n/a" if not np.isfinite(v) else f"{v:.3f}" for v in rr[col]]
+    rr = rr.rename(columns={
+        "split_half_spearman": "spearman(A,B)",
+        "pearson_z_a_z_b": "pearson(zA,zB)",
+        "pooled_reliability": "Spearman-Brown (parallel pairs only)",
+        "corr_pooled_z_with_a": "corr(z-pool, A)",
+        "corr_pooled_z_with_b": "corr(z-pool, B)"})
 
-    gap_rows = gaps[["protein", "n_singles", "n_doubles", "gap_spearman",
-                     "gap_spearman_lo", "gap_spearman_hi"]].copy()
-    for col in ("n_singles", "n_doubles"):
-        gap_rows[col] = [f"{int(v):,}" for v in gap_rows[col]]
-    gap_rows["gap spearman (single - double)"] = [
-        f"{v:+.3f} [{lo:+.3f}, {hi:+.3f}]"
-        if np.isfinite(v) else "n/a"
-        for v, lo, hi in zip(gap_rows["gap_spearman"],
-                             gap_rows["gap_spearman_lo"],
-                             gap_rows["gap_spearman_hi"])]
-    gap_rows = gap_rows.drop(columns=["gap_spearman", "gap_spearman_lo",
-                                      "gap_spearman_hi"])
+    g = gaps.copy()
+    out = pd.DataFrame({
+        "protein": g["protein"],
+        "target": [t + (" (primary)" if prim else "")
+                   for t, prim in zip(g["target"], g["is_primary_target"])],
+        "singles / doubles": [f"{int(a):,} / {int(b):,}"
+                              for a, b in zip(g["n_singles"], g["n_doubles"])],
+        "positions": [f"{int(v)}" for v in g["n_position_clusters"]],
+        "gap rho (single - double)": [
+            ci(v, lo, hi) for v, lo, hi in zip(
+                g["gap_spearman"], g["gap_spearman_lo"], g["gap_spearman_hi"])],
+        "range-matched gap": [
+            ci(v, lo, hi) for v, lo, hi in zip(
+                g["range_matched_gap"], g["range_matched_gap_lo"],
+                g["range_matched_gap_hi"])],
+        "top-decile gap": [
+            ci(v, lo, hi) for v, lo, hi in zip(
+                g["gap_recall"], g["gap_recall_lo"], g["gap_recall_hi"])],
+    })
 
-    return (table_a + "\n\n" + fmt_table(rel_rows) + "\n\n" +
-            fmt_table(gap_rows))
+    return (table_pairs + "\n\n" + table_a + "\n\n" + fmt_table(rr)
+            + "\n\n" + fmt_table(out))
 
 
 def topk_ceiling_table():
