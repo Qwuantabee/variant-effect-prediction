@@ -26,6 +26,9 @@ strata are scored from it, which is exactly the independent-site model.
 Per assay and per stratum (single / all multi / doubles / triples) it reports:
 
   * Spearman against DMS_score within the stratum, with a bootstrap CI
+    resampled by POSITION (variants cluster by position, so a variant-level
+    interval is too narrow; every interval and gap here uses the position
+    bootstrap of variant_effect.resampling)
   * top-decile recall: the share of the measured top decile that appears in
     the model's top decile, so strata of 1,000 and 500,000 are comparable
   * top-10 recall, the repo's headline convention, for continuity
@@ -36,9 +39,18 @@ Confounds that are reported rather than hidden:
   * summed log-odds carry a variance penalty in the number of substitutions
     (`sd` grows like sqrt(k) if the sites were independent), so the multi
     strata are reported split by k as well as pooled;
-  * several assays' multi-mutants are not the same quantity as their singles
-    (a combinatorial library scored for binding, a singles library scored for
-    abundance), which is flagged per assay from the reference table;
+  * an assay's multi-mutants may not be the same quantity as its singles (a
+    combinatorial library scored for binding, a singles library scored for
+    abundance). The reference table cannot say that per library, so the output
+    carries (a) a boolean different_quantity_flag that is True only if the
+    assay belongs to a pair on the repo's DIFFERENT_QUANTITY list
+    (variant_effect.quantity), and (b) the reference table's
+    coarse_selection_type, so a reader can check the claim. The mutation-count
+    composition of each stratum is in n_sub_composition (it used to be written
+    into the flag column by mistake);
+  * the non-additive residual (additive_residual) is NOT the epistatic term: it
+    contains the measurement noise of the double and of both singles, and has
+    no replicate-based way to subtract it (see that function);
   * a sample of the largest strata is scored (cap, default 2000 per class)
     because 1.77M variants is not a CPU budget; the sample is seeded and
     stratified by mutation count, and the position table it needs is far
@@ -67,7 +79,8 @@ from scipy import stats
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from variant_effect import data, evaluate  # noqa: E402
+from variant_effect import data, evaluate, quantity, resampling  # noqa: E402
+from variant_effect.strata import range_matched_rho  # noqa: E402,F401
 from variant_effect.mutations import parse_variant  # noqa: E402
 
 OUT = ROOT / "results" / "epistasis"
@@ -220,17 +233,30 @@ def top_decile_fraction(pred, truth, frac=TOP_FRAC):
 def additive_residual(full, seed=0, cap=20000):
     """How much of a double mutant's measured fitness the additive model misses.
 
-    This is a *data-only* measurement, no model involved. For every double
-    mutant whose two constituent singles were also assayed, the additive
-    prediction is the sum of the two singles' z-scored fitnesses. The residual
-    (measured minus additive) is the epistatic term itself. Its variance share
-    says how wrong the independent-site assumption is on this protein.
+    A data-only measurement, no model involved. For every double mutant whose
+    two constituent singles were also assayed, the additive prediction is the
+    sum of the two singles' z-scored fitnesses. The residual (measured minus
+    additive) is the NON-ADDITIVE RESIDUAL.
 
-    It matters because the two questions are different and the README conflated
-    them: does epistasis exist in the data (this function), and does epistasis
+    It is NOT the epistatic term. The residual is
+
+        epistasis + e_double - e_single1 - e_single2
+
+    where each e is the measurement noise of that variant. The variance of the
+    residual is therefore an UPPER bound on the epistasis variance, and it can
+    exceed the total variance of the doubles when the singles are noisy: HIS7's
+    168 singles (singles truth sd 0.19, model rho 0.028) give a residual sd
+    larger than the doubles' total sd, a share above 1, which no variance
+    share of a real component can be. ProteinGym carries no per-variant error
+    for these assays, so the noise cannot be deconvolved; the quantity is
+    reported under its honest name and residual_exceeds_total flags the cases
+    where noise visibly dominates.
+
+    It matters because the two questions are different: does non-additivity
+    exist in the data (this function, at best as an upper bound), and does it
     degrade the model's ranking (the strata comparison). A protein can have
-    large epistatic residuals and still be ranked fine if the residuals are
-    not concentrated in the top decile.
+    large non-additive residuals and still be ranked fine if they are not
+    concentrated in the top decile.
     """
     singles = full[full["n_sub"] == 1]
     sd = float(np.nanstd(singles["DMS_score"], ddof=1))
@@ -259,50 +285,28 @@ def additive_residual(full, seed=0, cap=20000):
     meas = np.asarray(meas)
     resid = meas - add
     var_meas = float(np.nanvar(meas, ddof=1))
+    share = (float(np.nanvar(resid, ddof=1)) / var_meas
+             if var_meas > 0 else np.nan)
     return {
         "n_doubles_with_singles": int(len(meas)),
         "additive_spearman": evaluate.spearman(add, meas),
         "additive_r2": (float(np.corrcoef(add, meas)[0, 1] ** 2)
                         if np.nanstd(add) > 0 else np.nan),
-        "epistasis_sd_z": float(np.nanstd(resid, ddof=1)),
+        "nonadditive_residual_sd_z": float(np.nanstd(resid, ddof=1)),
         "double_total_sd_z": float(np.sqrt(var_meas)),
-        "epistasis_var_share": (float(np.nanvar(resid, ddof=1)) / var_meas
-                                if var_meas > 0 else np.nan),
+        "nonadditive_residual_var_share": share,
+        "residual_exceeds_total": bool(np.isfinite(share) and share > 1.0),
     }
 
 
-def range_matched_rho(pred, truth, other_pred, other_truth, frac=0.90):
-    """Spearman on the fitness window the two strata share.
-
-    A stratum of multi-mutants is not a random sample of the protein's fitness
-    distribution: it carries a long deleterious tail that a single-substitution
-    library does not. A rank correlation computed over a wider spread is
-    mechanically easier, so an apparent multi-mutant *advantage* can be an
-    artefact of that spread rather than evidence of anything. Trimming both
-    strata to the intersection of their central `frac` of measured fitness
-    removes the tail and asks the same question on comparable ground.
-    """
-    ok = np.isfinite(pred) & np.isfinite(truth)
-    ok2 = np.isfinite(other_pred) & np.isfinite(other_truth)
-    if ok.sum() < 50 or ok2.sum() < 50:
-        return (np.nan, np.nan, 0, 0)
-    tail = (1.0 - frac) / 2.0
-    a_lo, a_hi = np.quantile(truth[ok], [tail, 1 - tail])
-    b_lo, b_hi = np.quantile(other_truth[ok2], [tail, 1 - tail])
-    lo, hi = max(a_lo, b_lo), min(a_hi, b_hi)
-    if hi <= lo:
-        return (np.nan, np.nan, 0, 0)
-    ka = ok & (truth >= lo) & (truth <= hi)
-    kb = ok2 & (other_truth >= lo) & (other_truth <= hi)
-    if ka.sum() < 50 or kb.sum() < 50:
-        return (np.nan, np.nan, int(ka.sum()), int(kb.sum()))
-    return (evaluate.spearman(pred[ka], truth[ka]),
-            evaluate.spearman(other_pred[kb], other_truth[kb]),
-            int(ka.sum()), int(kb.sum()))
-
-
-def stratum_metrics(pred, truth):
-    lo, hi = evaluate.spearman_ci(pred, truth, n_boot=N_BOOT)
+def stratum_metrics(pred, truth, mutants=None):
+    """Metrics for one stratum. RESAMPLING UNIT of the Spearman interval: the
+    POSITION when mutants (the stratum's mutant strings, aligned to pred) are
+    given; the VARIANT otherwise, which is too narrow for clustered data and
+    kept only for callers that have no mutant strings."""
+    groups = (None if mutants is None else
+              [resampling.substitution_positions(m) for m in mutants])
+    lo, hi = evaluate.spearman_ci(pred, truth, n_boot=N_BOOT, groups=groups)
     ok = np.isfinite(pred) & np.isfinite(truth)
     p, t = pred[ok], truth[ok]
     # calibration: slope of truth on the independent-site score. If the summed
@@ -331,33 +335,36 @@ def stratum_metrics(pred, truth):
     }
 
 
-def _rho_boot(pred, truth, n_boot=N_BOOT, seed=0):
-    rng = np.random.default_rng(seed)
-    n = len(pred)
-    idx = rng.integers(0, n, (n_boot, n))
-    out = np.empty(n_boot)
-    rp = evaluate._rank_rows(pred[idx])
-    rt = evaluate._rank_rows(truth[idx])
-    rp -= rp.mean(axis=1, keepdims=True)
-    rt -= rt.mean(axis=1, keepdims=True)
-    num = (rp * rt).sum(axis=1)
-    den = np.sqrt((rp ** 2).sum(axis=1) * (rt ** 2).sum(axis=1))
-    with np.errstate(invalid="ignore", divide="ignore"):
-        out = np.where(den > 0, num / den, np.nan)
-    return out
+def gap_ci(pred_s, truth_s, pred_m, truth_m, mutants_s=None, mutants_m=None,
+           n_boot=None, seed=0, metric=None):
+    """CI on (metric_single - metric_multi), default Spearman.
 
-
-def gap_ci(pred_s, truth_s, pred_m, truth_m, n_boot=N_BOOT, seed=0):
-    """Bootstrap CI on (rho_single - rho_multi), resampling each stratum."""
+    RESAMPLING UNIT: the POSITION when mutants_s and mutants_m are given (one
+    draw shared by both strata, variants weighted by the product of their
+    positions' multiplicities; resampling.gap_bootstrap). Without them the unit
+    is the VARIANT, each stratum resampled independently, which understates the
+    uncertainty on clustered data (RASK doubles: about 3x) and is kept only for
+    synthetic tests. Returns (lo, hi).
+    """
     if min(len(pred_s), len(pred_m)) < 10:
         return (np.nan, np.nan)
-    rs = _rho_boot(pred_s, truth_s, n_boot, seed)
-    rm = _rho_boot(pred_m, truth_m, n_boot, seed + 1)
-    d = rs - rm
-    d = d[np.isfinite(d)]
-    if len(d) < 10:
-        return (np.nan, np.nan)
-    return (float(np.percentile(d, 2.5)), float(np.percentile(d, 97.5)))
+    fn = metric or evaluate.spearman
+    _, lo, hi, _ = resampling.gap_bootstrap(
+        fn, (pred_s, truth_s), (pred_m, truth_m), mutants_s, mutants_m,
+        n_boot=N_BOOT if n_boot is None else n_boot, seed=seed, min_n=10)
+    return (lo, hi)
+
+
+def range_matched_gap_ci(pred_s, truth_s, pred_m, truth_m, mutants_s, mutants_m,
+                         n_boot=None, seed=0):
+    """CI on the range-matched gap, window recomputed in every replicate,
+    resampled by position. Returns (lo, hi)."""
+    from variant_effect.strata import range_matched_gap
+    _, lo, hi, _ = resampling.gap_bootstrap(
+        range_matched_gap, (pred_s, truth_s), (pred_m, truth_m),
+        mutants_s, mutants_m, n_boot=N_BOOT if n_boot is None else n_boot,
+        seed=seed, min_n=50, joint=True)
+    return (lo, hi)
 
 
 # ----------------------------------------------------------------------
@@ -385,13 +392,20 @@ def run_assay(scorer, assay_id, reference, cap, seed):
     if epi:
         print(f"    additive model on measured singles: "
               f"rho={epi['additive_spearman']:+.3f} "
-              f"epistasis var share={epi['epistasis_var_share']:.3f} "
+              f"non-additive residual var share="
+              f"{epi['nonadditive_residual_var_share']:.3f} "
               f"(n={epi['n_doubles_with_singles']})", flush=True)
+    different_quantity_flag = quantity.in_different_quantity_pair(assay_id)
+    scored = []
     for name, df in strata.items():
         pred = score_from_table(table, df["mutant"].tolist())
         truth = df["DMS_score"].to_numpy(dtype=float)
         per_stratum[name] = (pred, truth)
-        m = stratum_metrics(pred, truth)
+        if name in ("single", "multi"):
+            scored.append(pd.DataFrame({
+                "mutant": df["mutant"].to_numpy(), "n_sub": df["n_sub"].to_numpy(),
+                "stratum": name, "DMS_score": truth, "model": pred}))
+        m = stratum_metrics(pred, truth, mutants=df["mutant"].tolist())
         m.update({
             "assay": assay_id,
             "stratum": name,
@@ -399,9 +413,13 @@ def run_assay(scorer, assay_id, reference, cap, seed):
             "selection": meta["selection"],
             "seq_len": meta["seq_len"],
             **(epi or {}),
-            "different_quantity_flag": ", ".join(
+            "n_sub_composition": ", ".join(
                 f"{int(k)}sub:{int(v)}" for k, v in
                 df["n_sub"].value_counts().sort_index().items()),
+            "different_quantity_flag": bool(different_quantity_flag),
+            "reference_coarse_selection_type": str(
+                reference.loc[reference["DMS_id"] == assay_id,
+                              "coarse_selection_type"].iloc[0]),
             "score_truth_rho": evaluate.spearman(pred, truth),
             "assay_total_rows": int(len(full)),
             "assay_single_rows": int((full["n_sub"] == 1).sum()),
@@ -445,7 +463,8 @@ def run_assay(scorer, assay_id, reference, cap, seed):
     if len(pos_matched) >= 50:
         pm_pred = score_from_table(table, pos_matched["mutant"].tolist())
         pm_truth = pos_matched["DMS_score"].to_numpy(dtype=float)
-        pm_metrics = stratum_metrics(pm_pred, pm_truth)
+        pm_metrics = stratum_metrics(
+            pm_pred, pm_truth, mutants=pos_matched["mutant"].tolist())
         print(f"    position-matched singles: n={pm_metrics['n']} "
               f"rho={pm_metrics['spearman']:+.3f} "
               f"rec={pm_metrics['top_decile_recall']:.3f}", flush=True)
@@ -453,29 +472,70 @@ def run_assay(scorer, assay_id, reference, cap, seed):
     # the headline gap: singles vs all multi-mutants
     s_pred, s_truth = per_stratum["single"]
     m_pred, m_truth = per_stratum["multi"]
-    lo, hi = gap_ci(s_pred, s_truth, m_pred, m_truth, seed=seed)
+    s_mut = strata["single"]["mutant"].tolist()
+    m_mut = strata["multi"]["mutant"].tolist()
+    n_pos_clusters = resampling.ClusterIndex.from_mutants(
+        s_mut + m_mut).n_clusters
+    lo, hi = gap_ci(s_pred, s_truth, m_pred, m_truth, s_mut, m_mut, seed=seed)
+    lo_rec, hi_rec = gap_ci(s_pred, s_truth, m_pred, m_truth, s_mut, m_mut,
+                            seed=seed, metric=top_decile_fraction)
     rm_s, rm_m, n_s, n_m = range_matched_rho(s_pred, s_truth, m_pred, m_truth)
+    lo_rm, hi_rm = range_matched_gap_ci(s_pred, s_truth, m_pred, m_truth,
+                                        s_mut, m_mut, seed=seed)
     lo_pm = np.nan
     hi_pm = np.nan
     if pm_metrics is not None:
-        lo_pm, hi_pm = gap_ci(pm_pred, pm_truth, m_pred, m_truth, seed=seed)
+        lo_pm, hi_pm = gap_ci(pm_pred, pm_truth, m_pred, m_truth,
+                              pos_matched["mutant"].tolist(), m_mut, seed=seed)
+    # doubles-only comparison: singles vs the nsub2 stratum alone. This is the
+    # like-for-like contrast; the pooled multi stratum mixes mutation counts
+    # (HIS7 and GFP carry up to 13 substitutions) with the singles' positions.
+    lo_d2 = hi_d2 = gap_d2 = np.nan
+    if "nsub2" in per_stratum:
+        d_pred, d_truth = per_stratum["nsub2"]
+        gap_d2 = (evaluate.spearman(s_pred, s_truth)
+                  - evaluate.spearman(d_pred, d_truth))
+        lo_d2, hi_d2 = gap_ci(s_pred, s_truth, d_pred, d_truth, s_mut,
+                              strata["nsub2"]["mutant"].tolist(), seed=seed)
     for r in rows:
         r["gap_single_minus_multi"] = (rows[0]["spearman"] - rows[1]["spearman"])
         r["gap_lo"] = lo
         r["gap_hi"] = hi
+        r["gap_resampling_unit"] = "position (joint draw, both strata)"
+        r["n_position_clusters"] = int(n_pos_clusters)
         r["gap_top_decile"] = (rows[0]["top_decile_recall"]
                                - rows[1]["top_decile_recall"])
+        r["gap_top_decile_lo"] = lo_rec
+        r["gap_top_decile_hi"] = hi_rec
+        r["gap_single_minus_nsub2"] = gap_d2
+        r["gap_single_minus_nsub2_lo"] = lo_d2
+        r["gap_single_minus_nsub2_hi"] = hi_d2
+        r["range_matched_gap_lo"] = lo_rm
+        r["range_matched_gap_hi"] = hi_rm
         r["range_matched_rho_single"] = rm_s
         r["range_matched_rho_multi"] = rm_m
         r["range_matched_gap"] = rm_s - rm_m
         r["range_matched_n_single"] = n_s
         r["range_matched_n_multi"] = n_m
         r["pos_matched_n"] = pm_metrics["n"] if pm_metrics else 0
+        # the control restricts the singles to positions the multi-mutants
+        # touch; it only does anything if that drops some singles. When every
+        # single sits on a multi-mutant position the "control" is the
+        # unrestricted singles stratum again.
+        r["pos_matched_binds"] = bool(len(pos_matched)
+                                      < len(singles_df))
+        r["n_single_positions"] = int(len(
+            {i for m in s_mut for i in
+             (x.idx for x in parse_variant(m))}))
+        r["n_multi_positions"] = int(len(idxs))
         r["pos_matched_rho"] = (pm_metrics["spearman"] if pm_metrics else np.nan)
         r["pos_matched_top_decile"] = (
             pm_metrics["top_decile_recall"] if pm_metrics else np.nan)
         r["pos_matched_gap_lo"] = lo_pm
         r["pos_matched_gap_hi"] = hi_pm
+    if scored:
+        pd.concat(scored, ignore_index=True).to_csv(
+            OUT / f"scored_{assay_id}.csv.gz", index=False)
     return pd.DataFrame(rows)
 
 
@@ -485,6 +545,8 @@ def main():
     ap.add_argument("--cap", type=int, default=2000,
                     help="max variants scored per mutation-count class")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--refresh", action="store_true",
+                    help="recompute assays whose per_stratum CSV exists")
     args = ap.parse_args()
 
     OUT.mkdir(parents=True, exist_ok=True)
@@ -494,7 +556,7 @@ def main():
     frames = []
     for assay_id in assays:
         out_csv = OUT / f"per_stratum_{assay_id}.csv"
-        if out_csv.exists():
+        if out_csv.exists() and not args.refresh:
             print(f"{assay_id}: cached", flush=True)
             frames.append(pd.read_csv(out_csv))
             continue
@@ -544,12 +606,36 @@ def main():
     gaps["gap_rho"] = gaps["rho_single"] - gaps["rho_multi"]
     gaps["gap_rec"] = gaps["rec_single"] - gaps["rec_multi"]
     ctrl = (per.drop_duplicates("assay")[[
-        "assay", "range_matched_gap", "range_matched_rho_single",
-        "range_matched_rho_multi", "pos_matched_rho",
-        "pos_matched_top_decile", "pos_matched_n"]].set_index("assay"))
+        "assay", "gap_lo", "gap_hi", "n_position_clusters",
+        "gap_top_decile_lo", "gap_top_decile_hi",
+        "gap_single_minus_nsub2", "gap_single_minus_nsub2_lo",
+        "gap_single_minus_nsub2_hi",
+        "range_matched_gap", "range_matched_gap_lo", "range_matched_gap_hi",
+        "range_matched_rho_single", "range_matched_rho_multi",
+        "pos_matched_rho", "pos_matched_top_decile", "pos_matched_n",
+        "pos_matched_binds", "n_single_positions", "n_multi_positions",
+        "different_quantity_flag", "reference_coarse_selection_type",
+        "nonadditive_residual_var_share", "residual_exceeds_total",
+    ]].set_index("assay"))
     gaps = gaps.set_index("assay").join(ctrl).reset_index()
     gaps["pos_matched_gap_rho"] = gaps["pos_matched_rho"] - gaps["rho_multi"]
     gaps.to_csv(OUT / "paired_gaps.csv", index=False)
+
+    # The 5+ substitution stratum exists only for assays whose multi-mutants
+    # go that deep (not all five). Compare it with the singles and doubles of
+    # THE SAME assays, not with five-assay means.
+    deep = per[per["stratum"] == "nsub5plus"]["assay"].tolist()
+    if deep:
+        piv2 = per.pivot_table(index="assay", columns="stratum",
+                               values="spearman")
+        like = piv2.loc[deep, [c for c in ("single", "nsub2", "multi",
+                                           "nsub5plus") if c in piv2.columns]]
+        like.loc["mean over these assays"] = like.mean()
+        like.insert(0, "n_assays", len(deep))
+        like.to_csv(OUT / "nsub5plus_like_for_like.csv")
+        print("\n5+ substitution stratum, like-for-like (assays that have it: "
+              f"{len(deep)} of {per['assay'].nunique()})")
+        print(like.to_string())
 
     manifest = {
         "assays": list(assays),
