@@ -34,6 +34,28 @@ the README by scripts/report_tables.py, so nothing is hand-copied.
 
 Run:
     python scripts/run_topk_analysis.py
+
+
+Decile spread against measurement error (moved from the README)
+----------------------------------------------------------------
+Per-measurement error, standardised so two assays on different scales are
+comparable, has a median of 0.592 in standard-deviation units. The top decile's
+entire internal spread has a median of 0.294. On 29 of the 37 pairs, on both
+sides, the whole range of the decile is smaller than one measurement's error,
+and the "reliability" of the decile (one minus that error variance over the
+decile's own variance) is at or below zero on 32 of the 37. That number compares
+the decile's spread with one measurement's error and must not be read as "cannot
+be ranked by anything": the decile is selected on the very assay whose error is
+being subtracted, and selecting on a noisy measurement shrinks the selected
+variances (regression to the mean) while the noise estimate, made on the whole
+assay, stays put. scripts/sim_pooling_controls.py reproduces exactly this: at the
+real median noise level the formula averages -1.14 over 400 simulated assays
+(negative in all 400) while the latent value inside the decile has variance
+0.298 in the same units, and the two assays still correlate at +0.323 inside it.
+A decile that is hard to rank is a fair description of the real data; "zero
+reliability, so unrankable" is not. The Jaccard overlap of two assays' top
+deciles is 0.161: the sets barely coincide even where the rankings agree at 0.61
+over the whole assay.
 """
 
 import itertools

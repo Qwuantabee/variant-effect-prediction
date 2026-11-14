@@ -64,6 +64,60 @@ resumed rather than restarted.
 Run:
     python scripts/run_epistasis_test.py                 # default assay set
     python scripts/run_epistasis_test.py --assay SPG1_STRSG_Olson_2014
+
+
+Confounds and the mutation-count curve (moved from the README)
+---------------------------------------------------------------
+Range matching. A combinatorial library carries a long deleterious tail that a
+single-substitution library does not, and a rank correlation over a wider spread
+is mechanically easier, so both strata were trimmed to the intersection of their
+central 90% of measured fitness; the mean gap then shrinks from -0.135 to -0.054
+and still points away from the hypothesis. Per assay, with position-bootstrap
+intervals, the range-matched gaps are GFP -0.102 [-0.316, +0.107], HIS7 -0.171
+[-0.402, +0.095], PHOT -0.117 [-0.283, +0.224], SPG1 -0.002 [-0.097, +0.102], and
+GRB2 +0.124 [+0.032, +0.219]: for GRB2 the controlled gap is in the direction of
+degradation and its interval excludes zero, which the raw gap's interval did not.
+One assay out of five, no correction for five looks, so it is reported rather
+than weighted.
+
+Position matching. The libraries also concentrate on a handful of positions:
+PHOT's multi-mutants touch 15 positions while its 2,122 singles span 118, so a
+single-mutant stratum was restricted to only the positions the multi-mutants
+occupy. That control binds only for PHOT (276 of 2,122 singles remain; for GFP,
+GRB2, HIS7 and SPG1 every single already sits on a multi-mutant position, so the
+"position-matched" stratum is the full singles stratum and the control is a no-op
+there). On PHOT the multi-mutants still win by -0.435 (position-matched singles
+rho = +0.353 against +0.788); the five-assay mean of -0.195 (t = -1.67, p = 0.17)
+therefore mostly repeats the unmatched gaps for four of the assays.
+
+Mutation-count curve. If the model were wrong in proportion to how many
+independent sites it summed, rho should fall as k rises. On PHOT, which has
+enough variants at every k to measure, rho is +0.724 at k = 2 and still +0.682 at
+k = 14; on HIS7 it rises from +0.157 at k = 2 to +0.732 at k = 12. The 5+
+substitution stratum exists for only three of the five assays (HIS7, PHOT, GFP),
+so it is compared with the singles and doubles of those same three, not with
+five-assay means: singles +0.243, doubles +0.283, all multi-mutants +0.483, 5+
+substitutions +0.443 (results/epistasis/nsub5plus_like_for_like.csv). The
+singles-versus-doubles-only gap, the cleanest like-for-like contrast, is GFP
++0.083, GRB2 +0.075, HIS7 -0.128, PHOT -0.075 and SPG1 -0.031 (paired_gaps.csv,
+with position-bootstrap intervals). A multi-mutant accumulates damages, so it is
+easier to identify as broken: the same easiness the burial analysis found at
+buried positions, where nearly every substitution is damaging and calling them
+all bad is mostly right. Independent summation succeeds because the ranking task
+at the top of a DMS assay is detecting damage, not predicting fitness.
+
+Non-additive residual (the number behind README figure g). For every double
+mutant whose two constituent singles were also assayed, the additive prediction
+is the sum of the two singles' z-scored fitness; its residual against the
+measured double is the non-additive residual. It is an upper bound on epistasis,
+not the epistatic term: it also contains the measurement noise of the double and
+of both singles, and ProteinGym carries no per-variant error for these assays,
+so the noise cannot be subtracted. For HIS7 (168 singles, truth sd 0.192, model
+rho +0.028) the share above 1 means measurement noise in the singles dominates
+the residual, and the run flags it (residual_exceeds_total). Singles predict
+doubles at rho = +0.656 on average. A scorer that assumes independence ranks the
+variants where that assumption is most violated as well as or better than the
+ones where it holds.
 """
 
 import argparse

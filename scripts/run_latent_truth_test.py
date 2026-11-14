@@ -76,6 +76,25 @@ Run:
     python scripts/run_latent_truth_test.py --scores-only   # fill the cache
     python scripts/run_latent_truth_test.py                 # analyse
     python scripts/run_latent_truth_test.py --score-budget 300
+
+
+What the pooled target is and is not (moved from the README)
+-------------------------------------------------------------
+Pooling halves the independent measurement variance and leaves the rest: half
+the single-assay error is still in the target, so a recall measured against it
+tends to be lower than the same predictor would score against the latent
+quantity (attenuation by the remaining error), a tendency under the
+independent-error assumption rather than a proved bound. It is also not a
+platonic truth. Error the two assays share (a common variant library, reporter
+or growth readout) survives averaging untouched, and where a pair measures
+deliberately different quantities (a gain-of-function assay against a
+loss-of-function one, expression against activity) their average is a
+pseudo-quantity no experiment measured, so a recall against it can be optimistic
+rather than conservative. The same-quantity rows of the table are the check on
+that, and the low-reliability row is the check on pairs whose two measurements
+barely agree at all, where pooling averages two disagreements and is not
+informative. The model score is independent of both assays, which is why the
+model rows, not the 1.000 in the assay row, answer the question.
 """
 
 import argparse
