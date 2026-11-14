@@ -380,7 +380,7 @@ predictor could achieve, and the next block takes that distinction apart.
 | median per-measurement error (sd units) | 0.592 |
 | median top-decile internal spread (sd units) | 0.294 |
 | pairs whose decile spread is smaller than one measurement's error, on both sides | 29 of 37 |
-| pairs whose top-decile reliability is at or below zero | 32 of 37 |
+| pairs whose top-decile 'reliability' formula is at or below zero (decile selected on the same assay: see the simulated control) | 32 of 37 |
 | the model's mean top-10 recall, 217 assays | 0.323 |
 
 Does the shape of the top decile predict the model's recall?
@@ -421,60 +421,109 @@ mean anywhere in it.
 |---|---|
 | replicate pairs with >= 1000 shared variants | 32 |
 | proteins covered | 20 |
-| shared variant measurements | 142841 |
+| shared variant measurements | 143550 |
 | median truth-vs-truth top-10 recall (the old 0.350 definition) | 0.350 |
 | mean truth-vs-truth top-10 recall, same pairs | 0.408 |
 | median top-10 recall, assay against the pooled target | 1.000 |
 | median top-10 recall, model against one assay | 0.250 |
 | median top-10 recall, model against the pooled target | 0.250 |
-| median paired gain, model vs pooled minus model vs single | +0.025 |
-| pairs where pooling helped the model | 16 of 32 |
-| paired Wilcoxon p, top-10 recall | 0.0630 |
+| PROTEIN level (primary): proteins | 20 |
+| protein-level median paired gain, top-10 recall | +0.033 |
+| protein-level proteins better / worse / tied | 12 / 4 / 4 |
+| protein-level p, top-10 recall (Wilcoxon / exact / sign-flip) | 0.1023 / 0.1167 / 0.1671 |
+| pair level (secondary): median paired gain, top-10 recall | +0.025 |
+| pair-level pairs better / worse / tied | 16 / 9 / 7 of 32 |
+| pair-level p, top-10 recall (Wilcoxon / exact / sign-flip) | 0.0655 / 0.0710 / 0.1017 |
 | median Spearman, model against one assay | 0.478 |
 | median Spearman, model against the pooled target | 0.522 |
-| median paired gain, Spearman | +0.045 |
-| paired Wilcoxon p, Spearman | < 0.0001 |
-| median split-half reliability of a pair | 0.611 |
-| pairs at or below 0.3 reliability, pooling uninformative | 4 of 32 |
+| protein-level median paired gain, Spearman | +0.051 |
+| protein-level proteins better / worse | 20 / 0 |
+| protein-level p, Spearman (Wilcoxon / exact / sign-flip) | < 0.0001 / < 0.0001 / < 0.0001 |
+| pair-level median paired gain, Spearman | +0.045 |
+| pair-level pairs better / worse | 32 / 0 |
+| pair-level p, Spearman (Wilcoxon / exact / sign-flip) | < 0.0001 / < 0.0001 / < 0.0001 |
+| median inter-assay rank agreement of a pair (a reliability only for same-quantity pairs) | 0.611 |
+| pairs at or below 0.3 agreement, pooling uninformative | 4 of 32 |
 | same-quantity pairs only: n | 18 |
 | same-quantity median paired gain, top-10 recall | +0.025 |
-| same-quantity paired Wilcoxon p | 0.3380 |
+| same-quantity pair-level p, top-10 recall (Wilcoxon / exact / sign-flip) | 0.2984 / 0.3225 / 0.4210 |
+| same-quantity proteins | 9 |
+| same-quantity protein-level p, top-10 recall (Wilcoxon / exact / sign-flip) | 0.4982 / 0.5781 / 0.8125 |
+| same-quantity protein-level p, Spearman (Wilcoxon / exact / sign-flip) | 0.0077 / 0.0039 / 0.0041 |
 | reliable pairs only (split-half > 0.3): n | 28 |
 | reliable-pair median paired gain, top-10 recall | +0.025 |
+| reliable-pair protein-level p, top-10 recall (Wilcoxon / exact / sign-flip) | 0.0769 / 0.0923 / 0.1487 |
 | model mean top-10 recall, all 217 assays | 0.323 |
 | model mean top-10 recall, the 46 assays that have a replicate | 0.326 |
 
-Paired control, same pairs: an assay scored against the pooled target gains +0.475 over truth-against-truth (Wilcoxon p < 0.0001). That gain is the attenuation 0.350 was made of.
+Self-inclusion control, same pairs: an assay scored against a pooled target that contains it gains +0.475 over truth-against-truth (Wilcoxon p < 0.0001). That gain is self-inclusion (the assay is half of its own target), not a measure of how much attenuation 0.350 contained: see the simulated control below.
 <!-- END GENERATED: latent_truth -->
 
-The attenuation the audit predicted is real and measured: scored against
-the pooled target instead of against one assay, an assay gains a median of
-+0.475 top-10 recall on the same pairs (Wilcoxon p < 0.0001); it is not an
-independent predictor, it is half the target, so read that as a measurement of
-how much attenuation 0.350 contained and not as a benchmark a model could
-match. It is also the direct demonstration that 0.350 cannot be an upper
-bound: the same "predictor" beats it by nearly half a top-10 as soon as the
-target stops being one noisy assay.
+**The +0.475 is self-inclusion, not a measurement of attenuation.** Scored
+against the pooled target instead of against one assay, an assay gains a median
+of +0.475 top-10 recall on the same pairs (Wilcoxon p < 0.0001). That gain is
+not a measure of how much attenuation 0.350 contained: the assay is half of the
+target it is scored against, so its own measurement noise counts as signal. The
+simulated control below (`scripts/sim_pooling_controls.py`, 400 simulations of 2,000
+variants, seed 0) shows the size of that effect directly: with two assays that
+share *no* signal at all, A-versus-B recall is 0.109 and A-versus-pool recall is
+0.855 -- a gain of +0.746 from nothing; at the real median noise level the same
+assay gains +0.234 (0.764 to 0.998). So this control does not demonstrate that
+0.350 cannot be an upper bound, and the earlier sentence that said it did is
+withdrawn. The argument that 0.350 is not a bound on a predictor (agreement
+between two noisy readings is attenuated by both errors) stands as reasoning;
+these data do not measure by how much.
+
+<!-- BEGIN GENERATED: sim_controls -->
+Top-10 recall, mean over 400 simulations of 2000 variants:
+
+| simulation | A vs B | A vs pool(A,B) | B vs pool(A,B) | latent vs A | latent vs pool |
+|---|---|---|---|---|---|
+| two assays with NO shared signal | 0.109 | 0.855 | 0.845 | 0.096 | 0.097 |
+| two assays of one latent value, noise sd 0.595 (the real median) | 0.764 | 0.998 | 0.997 | 0.945 | 0.991 |
+
+Decile reliability, formula against truth, top decile of A selected on A itself:
+
+| reps | sigma_hat | variance of A in its top decile | reliability formula | reps with negative formula | true latent variance in that decile | corr(A, B) in that decile | corr(latent, A) in that decile |
+|---|---|---|---|---|---|---|---|
+| 400 | 0.595 | 0.168 | -1.140 | 100% | 0.298 | +0.323 | +0.480 |
+<!-- END GENERATED: sim_controls -->
 
 What the model does with the better target is narrower. Its top-10 recall
 against the pool is a median of 0.250, the same as against a single assay: a
-median paired gain of +0.025, 16 pairs better and 9 worse, paired Wilcoxon
-p = 0.063. On rank correlation, which is not bounded by eleven discrete
-values, the pooled target raises the model's Spearman in 32 of 32 pairs, a
-median of +0.045 (p < 0.0001). Two metrics, two readings: against a less
-noisy truth the model ranks consistently better, and its ten picks do not
-consistently land better.
+median paired gain of +0.025. **The recall gain is marginal and is not
+significant by any method used.** At the protein level, the primary test
+because the 32 pairs share proteins and assays (P53 alone contributes 6 pairs,
+and 14 of the 46 assays sit in more than one pair), 12 of 20 proteins gain, 4
+lose and 4 tie, with p = 0.102 (tie-corrected Wilcoxon), 0.117 (exact Wilcoxon)
+and 0.167 (sign-flip permutation). At the pair level (secondary; 16 pairs
+better, 9 worse, 7 tied) p = 0.0655 / 0.0710 / 0.102 by the same three methods.
+None of the six crosses 0.05, and which one lies nearest is not evidence for
+anything. An earlier version of this README quoted p = 0.063 for the pair level
+and a reviewer reproduced 0.049: both are artefacts. Recall differences are
+multiples of 0.05 but are computed by float subtraction, and the 17th digit
+decided which tied differences received which rank (15 distinct values where 6
+exist), so the unrounded Wilcoxon p moves between roughly 0.049 and 0.065 with
+the scipy version and the order the floats were produced in. The differences
+are now rounded to nine decimals before any rank is taken. On rank
+correlation, which is not bounded by eleven discrete values, the pooled target
+raises the model's Spearman in 20 of 20 proteins (median +0.051) and 32 of 32
+pairs (median +0.045), p < 0.0001 by all three methods at both levels. Two
+metrics, two readings: against a less noisy truth the model ranks consistently
+better, and its ten picks do not consistently land better.
 
 And on the same 32 pairs the old comparison itself does not survive. Truth
 against truth is a mean of 0.408 there; the model against a single assay is
-0.292. The paired gap is 0.116 in the model's disfavour, but the Wilcoxon
-test over pairs puts it at p = 0.155, and the model is below the truth-vs-truth
-value on 17 of 32 pairs -- not the clean "at the ceiling" story, and not a
-significant shortfall either. On 32 pairs with a ten-variant metric, the
-honest statement is that this data cannot separate the model from
-cross-assay agreement. What it can do is show that the cross-assay number was
-never an upper bound, which the +0.475 attenuation control above does
-directly.
+0.292. The paired gap is 0.116 in the model's disfavour, and the model is below
+the truth-versus-truth value on 17 of 32 pairs (14 pairs the other way, 1 tie).
+The Wilcoxon test over pairs puts the shortfall at p = 0.146 (tie-corrected;
+exact 0.152, sign-flip permutation 0.073); over the 20 proteins the mean gap is
+0.124 with p = 0.153 / 0.169 / 0.111 by the same three methods. That is not the
+clean "at the ceiling" story, and not a significant shortfall either. On 32
+pairs with a ten-variant metric, the honest statement is that this data cannot
+separate the model from cross-assay agreement. It cannot show that the
+cross-assay number was never an upper bound either: the +0.475 control is
+self-inclusion (above), so that point rests on the attenuation argument alone.
 
 One caution that the per-pair structure forces. The Spearman gain is
 *anti*-correlated with split-half reliability across pairs (Spearman -0.84,
@@ -496,19 +545,28 @@ The reason is visible in the numbers. Per-measurement error, standardised so
 two assays on different scales are comparable, has a median of 0.592 in
 standard-deviation units. The top decile's *entire internal spread* has a
 median of 0.294. On 29 of the 37 pairs, on both sides, the whole range of the
-decile is smaller than one measurement's error -- and the reliability of the
-decile, defined as the share of its variance that is signal rather than that
-error, is at or below zero on 32 of the 37. A subset with zero reliability
-cannot be ranked by anything, and the top decile of a typical DMS assay is
-that subset. The Jaccard overlap of two assays' top deciles is 0.161: the
+decile is smaller than one measurement's error -- and the "reliability" of the
+decile, one minus that error variance over the decile's own variance, is at or
+below zero on 32 of the 37. That number is a statement about the decile's
+spread compared with one measurement's error, and it must not be read as
+"cannot be ranked by anything": the decile is selected on the very assay whose
+error is being subtracted, and selecting on a noisy measurement shrinks the
+selected variances (regression to the mean) while the noise estimate, made on
+the whole assay, stays put. The simulated control above reproduces exactly this:
+at the real median noise level the formula averages -1.14 over 400 simulated
+assays (negative in all 400) while the latent value inside the decile has
+variance 0.298 in the same units, and the two assays still correlate at +0.323
+inside it. A decile that is hard to rank is a fair description of the real
+data; "zero reliability, so unrankable" is not. The Jaccard overlap of two assays' top deciles is 0.161: the
 sets barely coincide even where the rankings agree at 0.61 over the whole
 assay.
 
 What the pooled target is and is not. Pooling halves the *independent*
 measurement variance and leaves the rest: half the single-assay error is still
-in the target, so a recall measured against it is a **lower bound** on what the
-same predictor would score against the latent quantity - the real headroom is
-at least what is shown, not at most. It is also not a platonic truth. Error the
+in the target, so a recall measured against it tends to be *lower* than the
+same predictor would score against the latent quantity (attenuation by the
+remaining error), which is a tendency under the independent-error assumption
+rather than a proved bound. It is also not a platonic truth. Error the
 two assays share (a common variant library, a common reporter, a common growth
 readout) survives averaging untouched, and where a pair measures deliberately
 different quantities - a gain-of-function assay against a loss-of-function one,
@@ -529,10 +587,10 @@ against a lower-noise target the same assay scores higher, so nothing about
 0.350 constrains what a predictor could reach. What survives from the old
 argument is narrower and it does survive: inside one assay's top decile the
 measurement error is larger than the entire spread of the decile (0.592
-against 0.294, above), which is why the decile's *internal* ordering is not
-resolvable by anything. That is a statement about the resolvability of a
-subset, not about the model's headroom, and the earlier text ran the two
-together.
+against 0.294, above), which is why ordering *inside* the decile is hard to resolve.
+That is a statement about the resolvability of a subset (and, per the
+simulated control, not a limit of zero), not about the model's headroom, and
+the earlier text ran the two together.
 
 The heterogeneity candidate does not survive. If the model did badly on
 assays whose top decile is a plateau, decile shape would predict its recall
@@ -588,7 +646,7 @@ triples where intra-protein epistasis is real. It does not.
 | triples only | 3 | 4,978 | +0.321 | 0.196 |
 | 5+ substitutions | 3 | 41,648 | +0.443 | 0.279 |
 
-| assay | spearman, single | spearman, multi | gap (single - multi) | range-matched gap | epistasis variance share |
+| assay | spearman, single | spearman, multi | gap (single - multi) | range-matched gap | non-additive residual share (includes noise) |
 |---|---|---|---|---|---|
 | GFP_AEQVI_Sarkisyan_2016 | +0.052 | +0.123 | -0.071 | -0.102 | 0.202 |
 | GRB2_HUMAN_Faure_2021 | +0.726 | +0.651 | +0.075 | +0.124 | 0.548 |
@@ -600,10 +658,16 @@ triples where intra-protein epistasis is real. It does not.
 Pooled over the five assays, the independent-site score ranks multi-mutants
 *better* than single mutants: +0.481 mean Spearman against +0.346, and 0.294
 against 0.213 on top-decile recall, over 60,277 scored multi-mutant rows against
-5,453 single-mutant rows. Four of five assays improve in the same direction, and
-three of those four have bootstrap intervals excluding zero on the favourable
-side; one, GRB2, goes the other way by +0.075 Spearman, and it is the only gap
-whose interval excludes zero against the hypothesis. The mean gap is
+5,453 single-mutant rows. Four of five assays point the same way in point
+estimate (multi better). Every interval here is a position bootstrap, because
+variants cluster by position: only HIS7's gap (-0.510 [-0.691, -0.109], 170
+positions) excludes zero on the favourable side; GFP (-0.071 [-0.235, +0.105]),
+PHOT (-0.139 [-0.226, +0.381]) and SPG1 (-0.031 [-0.111, +0.066]) span zero.
+GRB2 goes the other way by +0.075 Spearman, and its interval [-0.008, +0.199]
+spans zero too. (An earlier version of this paragraph said three of four
+intervals excluded zero favourably and that GRB2's was the only one excluding it
+against the hypothesis; those came from a variant-level bootstrap, which is too
+narrow for clustered variants.) The mean gap is
 -0.135 Spearman (paired t = -1.36, p = 0.25, five assays) and -0.081 top-decile
 recall (t = -1.24, p = 0.28) — small and far from significant in the direction
 of the hypothesis, and in the opposite direction from it in point estimate.
@@ -614,22 +678,36 @@ Two confounds could manufacture a multi-mutant advantage, and both were tested
 rather than argued about. A combinatorial library carries a long deleterious
 tail that a single-substitution library does not, and a rank correlation over a
 wider spread is mechanically easier, so both strata were trimmed to the
-intersection of their central 90% of measured fitness — the gap then shrinks to
--0.054, still pointing away from the hypothesis. The libraries also concentrate
-on a handful of positions: PHOT's 165k multi-mutants touch 15 positions while
-its 2,122 singles span 118, so a single-mutant stratum was restricted to only
-the positions the multi-mutants occupy. On that
-position-matched comparison the multi-mutants still win, by -0.195 mean
-Spearman (t = -1.67, p = 0.17), and on PHOT by a wide margin: position-matched
-singles give rho = +0.353 against +0.788 for the multi-mutants.
+intersection of their central 90% of measured fitness — the mean gap then
+shrinks to -0.054 and still points away from the hypothesis. Per assay, with
+position-bootstrap intervals, the range-matched gaps are GFP -0.102 [-0.316,
++0.107], HIS7 -0.171 [-0.402, +0.095], PHOT -0.117 [-0.283, +0.224], SPG1
+-0.002 [-0.097, +0.102], and GRB2 **+0.124 [+0.032, +0.219]**: for GRB2 the
+controlled gap is in the direction of degradation and its interval excludes
+zero, which the raw gap's interval did not. One assay out of five, no
+correction for five looks, so it is reported rather than weighted. The libraries
+also concentrate on a handful of positions: PHOT's multi-mutants touch 15
+positions while its 2,122 singles span 118, so a single-mutant stratum was
+restricted to only the positions the multi-mutants occupy. That control binds
+**only for PHOT** (276 of 2,122 singles remain; for GFP, GRB2, HIS7 and SPG1 every
+single already sits on a multi-mutant position, so the "position-matched"
+stratum is the full singles stratum and the control is a no-op there). On PHOT
+the multi-mutants still win by -0.435 (position-matched singles rho = +0.353
+against +0.788); the five-assay mean of -0.195 (t = -1.67, p = 0.17) therefore
+mostly repeats the unmatched gaps for four of the assays.
 
 The mechanism is visible in the mutation-count curve, and it is not the one
 independence predicts. If the model were wrong in proportion to how many
 independent sites it summed, rho should fall as k rises. On PHOT, which has
-enough variants at every k to measure, rho is +0.724 at k = 2 and still +0.687
-at k = 14; on HIS7 it *rises* from +0.157 at k = 2 to +0.732 at k = 12. Across
-all five assays the 5+ substitution stratum averages +0.443, above the doubles'
-+0.362 and the singles' +0.346. What actually happens is that a multi-mutant
+enough variants at every k to measure, rho is +0.724 at k = 2 and still +0.682
+at k = 14; on HIS7 it *rises* from +0.157 at k = 2 to +0.732 at k = 12. The 5+
+substitution stratum exists for only **three** of the five assays (HIS7, PHOT,
+GFP), so it is compared with the singles and doubles of those same three, not
+with five-assay means: singles +0.243, doubles +0.283, all multi-mutants +0.483,
+5+ substitutions +0.443 (`results/epistasis/nsub5plus_like_for_like.csv`). The
+singles-versus-doubles-only gap, the cleanest like-for-like contrast, is GFP
++0.083, GRB2 +0.075, HIS7 -0.128, PHOT -0.075 and SPG1 -0.031 (`paired_gaps.csv`, with
+position-bootstrap intervals). What actually happens is that a multi-mutant
 accumulates damages, so it is easier to identify as broken — the same easiness
 the burial analysis already found at buried positions, where nearly every
 substitution is damaging and calling them all bad is mostly right. Independent
@@ -640,20 +718,30 @@ Epistasis itself is present and large; that is a separate question and it has a
 separate answer, measured with no model at all. For every double mutant whose
 two constituent singles were also assayed, the additive prediction is the sum
 of the two singles' z-scored fitness. Its residual against the measured double
-is the epistatic term. That residual carries a mean 0.586 of the double
+is the *non-additive residual*. It is an **upper bound** on epistasis and not the
+epistatic term: it also contains the measurement noise of the double and of both
+singles, and ProteinGym carries no per-variant error for these assays, so the
+noise cannot be subtracted. That residual carries a mean 0.586 of the double
 mutant's variance across the five assays — 0.20 for GFP, 0.25 for SPG1, 0.55
-for GRB2, 0.89 for PHOT, 1.04 for HIS7, where the epistatic term is larger than
-the total double-mutant variance. Singletons predict doubles at rho = +0.656 on
-average. So the epistasis the README previously said was unmeasured is real,
-substantial, and not what makes the model's top decile mediocre: a scorer that
+for GRB2, 0.89 for PHOT, 1.04 for HIS7. A share above 1 is impossible for a real
+variance component; for HIS7 (168 singles, truth sd 0.192, model rho +0.028) it
+means measurement noise in the singles dominates the residual, and the run flags
+it (residual_exceeds_total). Singletons predict doubles at rho = +0.656 on
+average. So non-additivity is present in these data, to an extent this measurement
+can only bound from above, and the model's top decile is not demonstrably
+mediocre because of it: a scorer that
 assumes independence ranks the very variants where that assumption is most
 violated as well as or better than the ones where it holds.
 
 One caveat on what these five assays measure. All five are ProteinGym
-substitution assays with a single readout per variant, and none is a paired
-binding-versus-abundance library, so the singles and the multi-mutants in each
-are on the same measured quantity as far as the reference table records it. The
-caveat is coverage rather than quantity: the position-matched control shows how
+substitution assays with a single readout per variant. The output now carries a
+boolean different_quantity_flag per assay (True only if the assay belongs to a
+pair on the repo's different-quantity list: False for all five) and the
+reference table's coarse selection type (GFP Activity, GRB2 and HIS7
+OrganismalFitness, PHOT Activity, SPG1 Binding). The reference table records one
+type per assay, not per library, so it cannot show that a singles library and a
+combinatorial library of the same assay were scored for the same quantity; that
+is assumed, not verified. A second caveat is coverage rather than quantity: the position-matched control shows how
 narrow these libraries are, and CAPSD_AAV2S_Sinai_2021 (41,796 multi-mutants over
 a 735-residue protein) was left out on CPU cost, so the largest viral library is
 not represented.
@@ -674,95 +762,148 @@ a difference in the target rather than a property of the model — a spliced
 library and a saturation library do not have the same fitness distribution, and
 nothing in the within-assay comparison controls for that.
 
-`scripts/run_epistasis_replicated.py` removes it. Two assays of the *same
-protein* are intersected on the exact variant string, so every shared variant
-was measured twice by two independent experiments; the two were z-scored and
-averaged into a pooled target with roughly half the independent measurement
-noise of either. The same independent-site scorer, unchanged, then ranks the
-shared singles and the shared doubles against that one target, with one
-masked-marginal table per mutated position serving both strata. The singles are
-the control: they are scored by the same model, on the same positions, against
-the same target, and the only thing that differs is whether a second
-substitution was summed into the score.
+`scripts/run_epistasis_replicated.py` addresses it, with its limits stated here instead of
+discovered later. Two assays of the *same protein* are intersected on the
+**canonical** variant string (substitutions sorted by position): an
+exact-string join silently drops every double that the two labs wrote in
+opposite orders, which cost the SPG1 pair 709 doubles (and RASK none). The same
+independent-site scorer, unchanged, ranks the shared singles and the shared
+doubles against four targets that are always reported side by side: assay A
+alone, assay B alone, the z-score pool, and the rank-normalised pool. The rank
+pool is the designated primary because it needs no affine-scale assumption; it
+was fixed before the run and no target is promoted for its result. One
+masked-marginal table per mutated position serves both strata, so the singles
+are the control: same model, same positions, same target.
 
-Two proteins qualify and are reported separately, never pooled. RASK_HUMAN
-(Weng 2022, abundance vs binding to DARPin K55) shares 23,072 variants with
-20,124 doubles and 2,948 singles. SPG1_STRSG (Olson 2014 vs Wu 2016) shares
-1,458 with 1,382 doubles and 76 singles. F7YBW8_MESOW shares zero variants
-between its two assays on disk, so it offers no pooled target and is skipped by
-name in the manifest.
+**Neither pair is a replicate pair**, and an earlier version of this section was
+wrong to call them two independent experiments of one quantity. RASK_HUMAN
+(Weng 2022, abundance vs binding to DARPin K55) is on the repo's own
+different-quantity list and the reference table labels the two assays
+Expression and Binding: abundance and binding are different quantities, the
+Spearman-Brown "pooled reliability" is therefore withheld for it, and the pooled
+target is a pseudo-quantity. SPG1_STRSG (Olson 2014 vs Wu 2016) is the same
+biology on two scales that are monotone but not affinely related (on the 76
+singles the two assays' Spearman is 0.998 and the Pearson of their z-scores is
+0.805), so a z-pool averages unlike scales; Spearman-Brown is withheld there too.
+RASK shares 23,072 variants (20,124 doubles, 2,948 singles). SPG1 shares 2,167 on
+the canonical join (2,091 doubles, 76 singles); the exact-string join gave
+1,458 (1,382 doubles). F7YBW8_MESOW shares zero variants on either join, so it
+offers no pooled target and is skipped by name in the manifest.
+
+**Every interval below is a position bootstrap**: positions are drawn with
+replacement and each variant is weighted by the product of its positions'
+multiplicities, one draw shared by the singles and the doubles. Variants are
+not independent (RASK's 20,124 doubles sit on 187 positions), and an interval
+that resamples variants is about three times too narrow there.
 
 <!-- BEGIN GENERATED: epistasis_replicated -->
-| protein | stratum | n | spearman | top-decile recall |
-|---|---|---|---|---|
-| RASK_HUMAN | singles | 2,948 | +0.453 [+0.424, +0.481] | 0.186 |
-| RASK_HUMAN | doubles | 20,124 | +0.541 [+0.531, +0.551] | 0.312 |
-| SPG1_STRSG | singles | 76 | +0.551 [+0.334, +0.721] | 0.250 |
-| SPG1_STRSG | doubles | 1,382 | +0.383 [+0.338, +0.426] | 0.297 |
+| protein | pair | parallel measures | why not | shared singles / doubles | exact-string join | canonical join |
+|---|---|---|---|---|---|---|
+| RASK_HUMAN | Weng_2022_abundance vs Weng_2022_binding-DARPin_K55 | NO | hand-curated DIFFERENT_QUANTITY list; reference coarse_selection_type differs: Expression vs Binding | 2,948 / 20,124 | 23,072 | 23,072 |
+| SPG1_STRSG | Olson_2014 vs Wu_2016 | NO | different scale: lnW (Olson 2014) vs Fitness (Wu 2016) | 76 / 2,091 | 1,458 | 2,167 |
 
-| protein | stratum | n | split-half spearman | pooled reliability |
-|---|---|---|---|---|
-| RASK_HUMAN | all | 23,072 | 0.386 | 0.557 |
-| RASK_HUMAN | singles | 2,948 | 0.478 | 0.647 |
-| RASK_HUMAN | doubles | 20,124 | 0.348 | 0.516 |
-| SPG1_STRSG | all | 1,458 | 0.891 | 0.942 |
-| SPG1_STRSG | singles | 76 | 0.998 | 0.999 |
-| SPG1_STRSG | doubles | 1,382 | 0.882 | 0.937 |
+| protein | target | stratum | n | spearman [position CI] | top-decile recall |
+|---|---|---|---|---|---|
+| RASK_HUMAN | pooled_rank | singles | 2,948 | +0.449 [+0.382, +0.510] | 0.183 |
+| RASK_HUMAN | pooled_rank | doubles | 20,124 | +0.521 [+0.415, +0.606] | 0.313 |
+| RASK_HUMAN | pooled_z | singles | 2,948 | +0.453 [+0.383, +0.516] | 0.186 |
+| RASK_HUMAN | pooled_z | doubles | 20,124 | +0.541 [+0.439, +0.622] | 0.312 |
+| RASK_HUMAN | assay_a | singles | 2,948 | +0.177 [+0.083, +0.267] | 0.132 |
+| RASK_HUMAN | assay_a | doubles | 20,124 | +0.236 [+0.053, +0.399] | 0.180 |
+| RASK_HUMAN | assay_b | singles | 2,948 | +0.567 [+0.492, +0.635] | 0.176 |
+| RASK_HUMAN | assay_b | doubles | 20,124 | +0.640 [+0.550, +0.718] | 0.316 |
+| SPG1_STRSG | pooled_rank | singles | 76 | +0.551 [+0.116, +0.674] | 0.250 |
+| SPG1_STRSG | pooled_rank | doubles | 2,091 | +0.414 [+0.081, +0.424] | 0.316 |
+| SPG1_STRSG | pooled_z | singles | 76 | +0.551 [+0.116, +0.674] | 0.250 |
+| SPG1_STRSG | pooled_z | doubles | 2,091 | +0.414 [+0.073, +0.421] | 0.311 |
+| SPG1_STRSG | assay_a | singles | 76 | +0.545 [+0.116, +0.651] | 0.250 |
+| SPG1_STRSG | assay_a | doubles | 2,091 | +0.411 [+0.123, +0.430] | 0.321 |
+| SPG1_STRSG | assay_b | singles | 76 | +0.551 [+0.116, +0.674] | 0.250 |
+| SPG1_STRSG | assay_b | doubles | 2,091 | +0.398 [+0.093, +0.417] | 0.292 |
 
-| protein | n_singles | n_doubles | gap spearman (single - double) |
-|---|---|---|---|
-| RASK_HUMAN | 2,948 | 20,124 | -0.088 [-0.123, -0.057] |
-| SPG1_STRSG | 76 | 1,382 | +0.168 [-0.035, +0.335] |
+| protein | stratum | n | spearman(A,B) | pearson(zA,zB) | Spearman-Brown (parallel pairs only) | corr(z-pool, A) | corr(z-pool, B) |
+|---|---|---|---|---|---|---|---|
+| RASK_HUMAN | all | 23,072 | 0.386 | 0.351 | n/a | 0.822 | 0.822 |
+| RASK_HUMAN | singles | 2,948 | 0.478 | 0.367 | n/a | 0.852 | 0.800 |
+| RASK_HUMAN | doubles | 20,124 | 0.348 | 0.324 | n/a | 0.814 | 0.814 |
+| SPG1_STRSG | all | 2,167 | 0.906 | 0.758 | n/a | 0.937 | 0.937 |
+| SPG1_STRSG | singles | 76 | 0.998 | 0.805 | n/a | 0.939 | 0.960 |
+| SPG1_STRSG | doubles | 2,091 | 0.901 | 0.753 | n/a | 0.937 | 0.936 |
+
+| protein | target | singles / doubles | positions | gap rho (single - double) | range-matched gap | top-decile gap |
+|---|---|---|---|---|---|---|
+| RASK_HUMAN | pooled_rank (primary) | 2,948 / 20,124 | 187 | -0.073 [-0.180, +0.039] | +0.031 [-0.082, +0.139] | -0.130 [-0.240, -0.007] |
+| RASK_HUMAN | pooled_z | 2,948 / 20,124 | 187 | -0.088 [-0.192, +0.017] | +0.012 [-0.101, +0.119] | -0.125 [-0.234, -0.008] |
+| RASK_HUMAN | assay_a | 2,948 / 20,124 | 187 | -0.059 [-0.216, +0.105] | +0.003 [-0.163, +0.137] | -0.048 [-0.142, +0.052] |
+| RASK_HUMAN | assay_b | 2,948 / 20,124 | 187 | -0.073 [-0.161, +0.021] | -0.009 [-0.096, +0.101] | -0.140 [-0.273, -0.012] |
+| SPG1_STRSG | pooled_rank (primary) | 76 / 2,091 | 4 | +0.137 [-0.075, +0.593] | +0.226 [+0.091, +0.465] | -0.066 [-0.369, +0.520] |
+| SPG1_STRSG | pooled_z | 76 / 2,091 | 4 | +0.137 [-0.071, +0.601] | +0.234 [+0.105, +0.475] | -0.061 [-0.358, +0.462] |
+| SPG1_STRSG | assay_a | 76 / 2,091 | 4 | +0.133 [-0.087, +0.528] | +0.203 [+0.073, +0.457] | -0.071 [-0.380, +0.462] |
+| SPG1_STRSG | assay_b | 76 / 2,091 | 4 | +0.153 [-0.057, +0.581] | +0.275 [+0.135, +0.628] | -0.042 [-0.346, +0.549] |
 <!-- END GENERATED: epistasis_replicated -->
 
-**The answer is no, and on the better-powered protein it is the opposite of the
-prediction.** On RASK_HUMAN the model ranks the 20,124 double mutants *better*
-than the 2,948 singles — +0.541 Spearman against +0.453, and 0.312 against
-0.186 on top-decile recall — a singles-minus-doubles gap of −0.088 with a
-bootstrap interval of [−0.123, −0.057] that excludes zero on the side opposite
-the hypothesis. That is on 23,072 variants of one protein against a target built
-from two assays, so it is not the earlier comparison repeated: if the earlier
-"multi-mutants rank better" result were an artefact of comparing two different
-libraries, removing the library mismatch should have reversed it. It did not.
-The SPG1 replication points the other way in point estimate (+0.168 gap, i.e.
-doubles slightly worse) but its interval is [−0.035, +0.335] and its single
-stratum is 76 variants, so it is **not distinguishable** from zero and should
-not be read as support for degradation either. Two proteins, one clearly
-against the hypothesis and one uninformative: this weakens the independent-site
-explanation rather than supporting it.
+**RASK_HUMAN: no degradation is distinguishable, and the controlled gap is near
+zero.** Against the rank pool the model ranks the doubles better than the
+singles in point estimate (Spearman +0.521 against +0.449; top-decile recall
+0.313 against 0.183). The singles-minus-doubles Spearman gap is -0.073 with a
+position-bootstrap interval of [-0.180, +0.039], which includes zero. The
+earlier README quoted -0.088 [-0.123, -0.057] and read the interval as excluding
+zero on the side opposite the hypothesis. The -0.088 is the z-pool point
+estimate and reproduces; the interval came from resampling the 20,124 doubles
+as independent variants, and by position the same gap is [-0.192, +0.017]. Against
+each assay alone the gap has the same sign and an interval that includes zero
+(abundance -0.059 [-0.216, +0.105]; binding -0.073 [-0.161, +0.021]). The
+doubles' measured fitness is spread over a wider range than the singles', and a
+rank correlation over a wider spread is mechanically larger; trimmed to the
+fitness window both strata share, the gap is +0.031 [-0.082, +0.139] on the rank
+pool (z-pool +0.012 [-0.101, +0.119]), still indistinguishable from zero and
+with the opposite sign. So part of the -0.088 is a statement about the spread of
+the doubles' truth and not about the model. The top-decile recall gap is -0.130
+[-0.240, -0.007] on the rank pool (-0.125 on the z-pool, -0.140 against binding
+alone with intervals that also end just below zero, and -0.048 [-0.142, +0.052]
+against abundance alone): doubles better, with an interval that only barely
+excludes zero on three of four targets and no range-matching applied to that
+metric. The data are consistent with the independent-site score paying no
+rank-accuracy cost on RASK doubles; they are too imprecise to exclude a modest
+advantage or deficit, and they do not support degradation.
+
+**SPG1_STRSG: not interpretable.** The shared variants sit on 4 positions. The
+gap is +0.137 [-0.075, +0.593] on the rank pool, and +0.226 [+0.091, +0.465]
+range-matched, which is the direction of degradation; but a position bootstrap
+over four clusters is not an interval for anything (the verdict code returns
+insufficient_clusters below 20 positions), and a variant-level bootstrap that
+treats 2,091 doubles on four positions as independent would be worse. The
+range-matched interval excluding zero does not change that. SPG1 neither
+supports nor contradicts RASK.
 
 What the run can and cannot say, stated plainly:
 
-* **The RASK target is mediocre, and that cuts both ways.** Split-half
-  reliability between the two Weng assays is just +0.386 over all shared
-  variants — the abundance and DARPin-binding readouts disagree about a large
-  share of the ordering — so the pooled target reaches only 0.557 on the
-  Spearman-Brown correction, and 0.516 within the doubles. A noisy target
-  attenuates every correlation measured against it towards zero; it does not
-  manufacture a *direction*, and the direction here is against the hypothesis
-  with an interval excluding zero. What it does mean is that both rho values
-  are lower bounds, and the gap is the difference of two attenuated quantities.
-* **The reliability asymmetry runs opposite to the result.** The singles target
-  is the *cleaner* one (0.647 pooled reliability against 0.516 for the doubles),
-  so attenuation alone predicts singles should correlate *better* than doubles.
-  They correlate worse. The confound pushes against what was measured rather
-  than producing it.
-* **SPG1 is a clean target but a narrow library.** Reliability is 0.937 within
-  the doubles, so the target is close to noise-free; but its shared variants
-  touch only four positions, and its 76 singles give an interval half a unit
-  wide. A high-quality target on a tiny, low-dimensional library cannot settle
-  the question, and it does not overturn RASK.
+* **The RASK target is a different-quantity pool.** The two Weng assays agree at
+  Spearman 0.386 over all shared variants (Pearson of the z-scores 0.351): the
+  abundance and DARPin-binding readouts disagree about a large share of the
+  ordering because they measure different things, not only because of noise, so
+  the Spearman-Brown correction is not applied. The z-pool correlates 0.822 with
+  each assay overall, and 0.852 / 0.800 (abundance / binding) within the
+  singles against 0.814 / 0.814 within the doubles, so the pool's composition
+  differs a little by stratum.
+* **Assay agreement is higher on the singles than on the doubles** (Spearman
+  0.478 against 0.348), which under attenuation would favour the singles. They
+  do not rank better; this is a measurement, not a proof that attenuation cannot
+  matter.
+* **SPG1 is a close-to-agreeing pair on a narrow library**: 4 positions, 76
+  singles. A target on which the two assays agree at Spearman 0.901 within the
+  doubles cannot settle the question on that library, and does not overturn
+  RASK.
 * **This tests one model class on two proteins.** Nothing here generalises to
   triples, to structurally coupled sites chosen deliberately, or to proteins
-  whose doubles library is wide; it is a direct test of the claim that summing
-  independent log-odds costs accuracy exactly where epistasis is measured, and
-  on the only well-powered replicated pair available locally it does not.
+  whose doubles library is wide.
 
-The mechanism that reconciles both epistasis sections is the same one: the top
-of a DMS assay rewards detecting damage, a double mutant accumulates two
-damages, and a sum of two negative log-odds is a good damage detector. Epistasis
-is large and real — the model-free residual above says so — and the
-independent-site score is still not the reason the top decile is mediocre.
+One hypothesis, not tested here, that would reconcile both epistasis sections:
+the top of a DMS assay rewards detecting damage, a double mutant accumulates two
+damages, and a sum of two negative log-odds is a good damage detector. The
+model-free residual above shows non-additivity exists in the data (an upper
+bound on it, see that section), and the independent-site score does not
+demonstrably lose accuracy to it.
 
 ## Masked marginals vs the cheap alternative
 
@@ -883,7 +1024,7 @@ from the files.
 <!-- END GENERATED: family_viral_gap -->
 
 <!-- BEGIN GENERATED: family_separation -->
-Across the 23 checkpoints in families that do not read an alignment, the median viral gap is -0.116; across the 19 that do, it is -0.022 (Mann-Whitney one-sided p=0.00047).
+Tested at the level of the family, which is the unit that varies (checkpoints within a family share an architecture and a training set): the 6 families that do not read an alignment have a median viral gap of -0.142, the 8 that do have -0.017; the exact one-sided Mann-Whitney test gives U = 8, p = 0.021. Counted per checkpoint (23 versus 19) the same test returns p = 0.00047, but that number counts one family many times and is shown only so it is not mistaken for the evidence.
 <!-- END GENERATED: family_separation -->
 
 ESM-C is the direct test the open-questions list asked for, and it fails
@@ -1052,8 +1193,10 @@ What is still open:
   objective, not of ESM-2: ESM-C scores 0.238 on virus against 0.466
   elsewhere, a −0.228 gap, slightly *larger* than ESM-2 650M's −0.198, on a
   different architecture and training set. Families that read an alignment
-  have a median gap of −0.022 against −0.116 for those that do not
-  (p=0.00047 over 42 checkpoints). See "The viral split is not an ESM-2
+  have a median checkpoint gap of −0.022 against −0.116 for those that do not;
+  tested at the family level (6 against 8 families, exact one-sided
+  Mann-Whitney) the evidence is p = 0.021 (U = 8), not the p = 0.00047 that
+  counting 42 checkpoints gave. See "The viral split is not an ESM-2
   artefact"
 
 ## Note on how this was built

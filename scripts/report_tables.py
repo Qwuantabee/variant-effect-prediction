@@ -91,6 +91,9 @@ def full_benchmark_coverage():
     esm = d[d["method"] == "esm2"].dropna(subset=["spearman"])
     off = data.official_scores()
     both = esm["assay"].isin(off.index)
+    if not both.any():
+        return (f"{len(esm)} of {len(off)} assays scored; none of them has a "
+                "published per-assay value to compare against.")
     diff = (esm.set_index("assay").loc[
         esm.loc[both, "assay"], "spearman"].to_numpy()
         - off.loc[esm.loc[both, "assay"], "ESM2 (650M)"].to_numpy())
@@ -520,6 +523,9 @@ def topk_ceiling_table():
             model_recall = float(esm["top10_recall"].mean())
 
     both = d["noise_exceeds_top_spread_a"] & d["noise_exceeds_top_spread_b"]
+    n_model_assays = 0
+    if per_assay.exists() and len(esm):
+        n_model_assays = int(esm["top10_recall"].notna().sum())
     rows = [
         ("replicate assay pairs", f"{len(d)}"),
         ("proteins covered", f"{d['uniprot'].nunique()}"),
@@ -535,9 +541,10 @@ def topk_ceiling_table():
          f"{d['top_decile_sd_a'].median():.3f}"),
         ("pairs whose decile spread is smaller than one measurement's "
          "error, on both sides", f"{int(both.sum())} of {len(d)}"),
-        ("pairs whose top-decile reliability is at or below zero",
+        ("pairs whose top-decile 'reliability' formula is at or below zero "
+         "(decile selected on the same assay: see the simulated control)",
          f"{int((d['reliability_top_decile'] <= 0).sum())} of {len(d)}"),
-        ("the model's mean top-10 recall, 217 assays",
+        (f"the model's mean top-10 recall, {n_model_assays} assays",
          "n/a" if not np.isfinite(model_recall) else f"{model_recall:.3f}"),
     ]
     out = pd.DataFrame(rows, columns=["measurement", "value"])

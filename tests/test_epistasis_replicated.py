@@ -489,17 +489,17 @@ def test_stratified_reports_four_targets_with_position_clustered_intervals():
     """Shape of the output, and the review's central point (C2): the interval
     comes from a position bootstrap, so it is wider than the variant-level one
     on a frame whose doubles carry only a per-pair effect."""
-    df = _synthetic_two_assay_frame()
+    df = _synthetic_two_assay_frame(n_pos=60)     # >= 50 singles
     df = df.rename(columns={"A": "score_AA", "B": "score_BB"})
     df = rep.pooled_frame(df, "AA", "BB")
     pair = {"protein": "SYN", "role": "test", "assay_a": "AA", "assay_b": "BB"}
-    rows, gaps = rep.stratified(pair, df, df["model"].to_numpy(), 40,
+    rows, gaps = rep.stratified(pair, df, df["model"].to_numpy(), 60,
                                 n_boot=120)
     assert {g["target"] for g in gaps} == set(rep.TARGETS)
     assert {r["target"] for r in rows} == set(rep.TARGETS)
     assert len(rows) == 2 * len(rep.TARGETS)
     g = next(x for x in gaps if x["target"] == rep.PRIMARY_TARGET)
-    assert g["is_primary_target"] and g["n_position_clusters"] == 40
+    assert g["is_primary_target"] and g["n_position_clusters"] == 60
     assert np.isfinite(g["range_matched_gap"])
 
     s = df[df.n_sub == 1]
@@ -604,3 +604,83 @@ def test_verdict_refuses_to_read_an_interval_resampled_from_a_handful_of_positio
     g["n_position_clusters"] = 185
     v = rep.verdict_text([], [g], _rel(0.9))["TEST"]
     assert v["state"] == "degrades"
+
+
+
+def _load_report_tables():
+    import importlib.util
+    path = ROOT / "scripts" / "report_tables.py"
+    spec = importlib.util.spec_from_file_location("report_tables", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _ci(v, lo, hi):
+    return f"{v:+.3f} [{lo:+.3f}, {hi:+.3f}]"
+
+
+def test_rendered_tables_show_every_interval_every_target_and_the_pair_status():
+    """The older renderer test only looked for the point estimates, so a table
+    that dropped the intervals, the controls or the not-a-replicate-pair flag
+    would still pass. This one checks each of them is rendered."""
+    mod = _load_report_tables()
+    body = mod.epistasis_replicated_table()
+    require(body is not None, "run the script first: results are not present")
+    base = ROOT / "results" / "epistasis_replicated"
+    per = pd.read_csv(base / "per_stratum.csv")
+    gaps = pd.read_csv(base / "gaps.csv")
+    for _, r in per.iterrows():
+        assert _ci(r["spearman"], r["spearman_lo"], r["spearman_hi"]) in body
+    for _, g in gaps.iterrows():
+        assert g["target"] in body
+        assert _ci(g["gap_spearman"], g["gap_spearman_lo"],
+                   g["gap_spearman_hi"]) in body
+        assert _ci(g["range_matched_gap"], g["range_matched_gap_lo"],
+                   g["range_matched_gap_hi"]) in body
+    assert set(gaps["target"]) == set(rep.TARGETS)
+    # the pair-status table: both pairs flagged, both join counts shown
+    assert "NO" in body and "different scale" in body
+    assert "DIFFERENT_QUANTITY" in body
+    import json
+    man = json.loads((base / "manifest.json").read_text())
+    for p in man["pairs"].values():
+        assert f"{p['join']['canonical_intersection']:,}" in body
+        assert f"{p['join']['exact_string_intersection']:,}" in body
+
+
+def test_readme_block_carries_the_intervals_and_the_controlled_gap():
+    readme = (ROOT / "README.md").read_text()
+    begin = "<!-- BEGIN GENERATED: epistasis_replicated -->"
+    end = "<!-- END GENERATED: epistasis_replicated -->"
+    require(begin in readme, "marker not present")
+    block = readme.split(begin, 1)[1].split(end, 1)[0]
+    gaps_path = ROOT / "results" / "epistasis_replicated" / "gaps.csv"
+    require(gaps_path.exists(), "results not present")
+    for _, g in pd.read_csv(gaps_path).iterrows():
+        assert _ci(g["gap_spearman"], g["gap_spearman_lo"],
+                   g["gap_spearman_hi"]) in block
+        assert _ci(g["range_matched_gap"], g["range_matched_gap_lo"],
+                   g["range_matched_gap_hi"]) in block
+    # and the block IS what the renderer would write now
+    fresh = _load_report_tables().epistasis_replicated_table()
+    assert block.strip() == fresh.strip()
+
+
+def test_manifest_verdicts_follow_the_rules_in_the_code():
+    """RASK is read as not distinguishable and SPG1 as insufficient_clusters:
+    both checked against the stored gaps, not typed."""
+    import json
+    base = ROOT / "results" / "epistasis_replicated"
+    require((base / "manifest.json").exists(), "results not present")
+    man = json.loads((base / "manifest.json").read_text())
+    gaps = pd.read_csv(base / "gaps.csv")
+    rows = gaps.to_dict("records")
+    for r in rows:
+        r["pair_parallel"] = False
+    recomputed = rep.verdict_text([], rows, [])
+    for key, v in man["verdict"].items():
+        assert recomputed[key]["state"] == v["state"]
+    spg1 = man["verdict"]["SPG1_STRSG"]
+    assert spg1["state"] == "insufficient_clusters"
+    assert spg1["n_position_clusters"] < rep.MIN_CLUSTERS
