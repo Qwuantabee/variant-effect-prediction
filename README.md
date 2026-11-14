@@ -417,7 +417,17 @@ across the 217 assays. It does not: the second table above gives the rank
 correlations, and none of them is a predictor worth acting on.
 
 What is left is epistasis, and this data *can* test it. `scripts/run_epistasis_test.py`
-does the test, and the independent-site explanation is **refuted**.
+does the test. The result does **not** support the independent-site explanation:
+the degradation it predicts is absent, and in point estimate the ranking is
+*better* on multi-mutants, not worse. That is not the same as refuting it. With
+five assays the pooled gap of −0.135 Spearman is far from significant
+(paired t = −1.36, p = 0.25), so the honest reading is that the prediction
+failed to appear in the direction and magnitude the hypothesis required, on a
+sample too small to exclude a modest degradation. The stronger, better-supported
+claim is model-free and separate: epistasis itself is real and large here (see
+below), so the independent-site score is summing terms whose interactions are
+substantial — it simply is not costing rank accuracy the way the hypothesis
+said it would.
 
 The earlier version of this section said the data could not test it because 47 of
 the 51 assays behind the replicate pairs contain no multi-mutant variants. That
