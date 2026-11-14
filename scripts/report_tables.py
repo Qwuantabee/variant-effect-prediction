@@ -320,6 +320,78 @@ def quoted_vs_published_text():
         ", ".join(parts) + "."
 
 
+def epistasis_table():
+    """The singles-vs-multis test, from results/epistasis.
+
+    The README once said epistasis could not be tested because the replicate
+    subset is single-substitution only. This table is the test that framing
+    missed: the full local protein set has multi-mutants, and the scorer's
+    independent-site summation is exactly the hypothesis under test. Every
+    number below is read from the run's CSVs so none is hand-copied.
+    """
+    per_path = ROOT / "results" / "epistasis" / "per_stratum_all.csv"
+    gaps_path = ROOT / "results" / "epistasis" / "paired_gaps.csv"
+    if not per_path.exists() or not gaps_path.exists():
+        return None
+
+    per = pd.read_csv(per_path)
+    gaps = pd.read_csv(gaps_path)
+
+    def row(r):
+        return {
+            "assay": r["assay"],
+            "n": f"{int(r['n']):,}",
+            "spearman": ("n/a" if not np.isfinite(r["spearman"])
+                         else f"{r['spearman']:+.3f}"),
+            "top-decile recall": ("n/a" if not np.isfinite(r["top_decile_recall"])
+                                  else f"{r['top_decile_recall']:.3f}"),
+        }
+
+    s = per[per["stratum"] == "single"]
+    m = per[per["stratum"] == "multi"]
+    combined = pd.DataFrame(
+        [dict(row(r), stratum="single") for _, r in s.iterrows()] +
+        [dict(row(r), stratum="multi") for _, r in m.iterrows()])
+    combined = combined[["assay", "stratum", "n", "spearman",
+                         "top-decile recall"]]
+    combined = combined.sort_values(["assay", "stratum"])
+
+    pooled_rows = []
+    for stratum, label in (("single", "single mutants"),
+                           ("multi", "all multi-mutants"),
+                           ("nsub2", "doubles only"),
+                           ("nsub3", "triples only"),
+                           ("nsub5plus", "5+ substitutions")):
+        sub = per[per["stratum"] == stratum]
+        if sub.empty:
+            continue
+        pooled_rows.append({
+            "stratum": label,
+            "assays": f"{len(sub)}",
+            "variants scored": f"{int(sub['n'].sum()):,}",
+            "mean spearman": f"{sub['spearman'].mean():+.3f}",
+            "mean top-decile recall": f"{sub['top_decile_recall'].mean():.3f}",
+        })
+    pooled = pd.DataFrame(pooled_rows)
+
+    gap_rows = pd.DataFrame({
+        "assay": gaps["assay"],
+        "spearman, single": [f"{v:+.3f}" for v in gaps["rho_single"]],
+        "spearman, multi": [f"{v:+.3f}" for v in gaps["rho_multi"]],
+        "gap (single - multi)": [f"{v:+.3f}" for v in gaps["gap_rho"]],
+        "range-matched gap": [f"{v:+.3f}"
+                              for v in gaps["range_matched_gap"]],
+        "epistasis variance share": [
+            f"{v:.3f}" for v in
+            per.drop_duplicates("assay").set_index("assay")
+            .loc[gaps["assay"], "epistasis_var_share"]],
+    })
+
+    return (fmt_table(combined, floatfmt="{:+.3f}") + "\n\n" +
+            fmt_table(pooled, floatfmt="{:+.3f}") + "\n\n" +
+            fmt_table(gap_rows, floatfmt="{:+.3f}"))
+
+
 def topk_ceiling_table():
     """The cross-assay ceiling, from results/topk.
 
@@ -388,6 +460,7 @@ TABLES = {
     "structure_heldout": structure_heldout_text,
     "scope_audit": scope_audit_table,
     "topk_ceiling": topk_ceiling_table,
+    "epistasis": epistasis_table,
     "family_viral_gap": family_gap_table,
     "family_separation": family_separation_text,
     "quoted_headlines": quoted_vs_published_text,

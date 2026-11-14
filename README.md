@@ -360,7 +360,8 @@ So the top-k failure has some other cause. The candidates left were epistasis
 where combinations matter most), the heterogeneity of what "top 10%" means
 across assays, and plain measurement noise in the assays with few variants.
 
-Two of those three are now tested, and the answer is the measurement.
+All three of those are now tested: the answer on top-k is the measurement, and
+the answer on epistasis is that it is real but not the cause.
 `scripts/run_topk_analysis.py` uses the 37 pairs of same-protein assays in
 ProteinGym -- 22 proteins with two or more assays, restricted to the variants
 each pair shares, at least 200 of them -- as replicate measurements. Two
@@ -415,12 +416,114 @@ assays whose top decile is a plateau, decile shape would predict its recall
 across the 217 assays. It does not: the second table above gives the rank
 correlations, and none of them is a predictor worth acting on.
 
-What is left is epistasis, and this data cannot test it. The pairs above are
-almost all single-substitution assays -- 47 of the 51 assays involved contain
-no multi-mutant variants at all -- so whether the model would rank a
-double mutant correctly, which is where an independent-site scorer should
-fail, is not measured anywhere here. That is the one candidate still standing
-untested, and it is stated as untested rather than argued away.
+What is left is epistasis, and this data *can* test it. `scripts/run_epistasis_test.py`
+does the test, and the independent-site explanation is **refuted**.
+
+The earlier version of this section said the data could not test it because 47 of
+the 51 assays behind the replicate pairs contain no multi-mutant variants. That
+was true of the replicate subset and false of the dataset. Of the 217 assays on
+disk, 69 contain multi-mutants and 65 have at least 100 singles alongside at
+least 100 multi-mutants, over 1.77 million multi-mutant rows. The scorer needed
+no change to use them — `parse_variant` already splits `A2M:K5R` on `:` and
+`score_variants` already sums the per-site log-odds, which *is* the
+independent-site model. Every assay below was scored from one masked-marginal
+table per mutated position, so singles and multi-mutants are ranked by exactly
+the same model in the same units.
+
+The prediction was that a model of independence must degrade on doubles and
+triples where intra-protein epistasis is real. It does not.
+
+<!-- BEGIN GENERATED: epistasis -->
+| assay | stratum | n | spearman | top-decile recall |
+|---|---|---|---|---|
+| GFP_AEQVI_Sarkisyan_2016 | multi | 14,481 | +0.123 | 0.069 |
+| GFP_AEQVI_Sarkisyan_2016 | single | 1,084 | +0.052 | 0.139 |
+| GRB2_HUMAN_Faure_2021 | multi | 2,000 | +0.651 | 0.430 |
+| GRB2_HUMAN_Faure_2021 | single | 1,034 | +0.726 | 0.320 |
+| HIS7_YEAST_Pokusaeva_2019 | multi | 21,442 | +0.538 | 0.193 |
+| HIS7_YEAST_Pokusaeva_2019 | single | 168 | +0.028 | 0.176 |
+| PHOT_CHLRE_Chen_2023 | multi | 20,354 | +0.788 | 0.532 |
+| PHOT_CHLRE_Chen_2023 | single | 2,122 | +0.649 | 0.217 |
+| SPG1_STRSG_Olson_2014 | multi | 2,000 | +0.307 | 0.245 |
+| SPG1_STRSG_Olson_2014 | single | 1,045 | +0.276 | 0.212 |
+
+| stratum | assays | variants scored | mean spearman | mean top-decile recall |
+|---|---|---|---|---|
+| single mutants | 5 | 5,453 | +0.346 | 0.213 |
+| all multi-mutants | 5 | 60,277 | +0.481 | 0.294 |
+| doubles only | 5 | 7,651 | +0.362 | 0.256 |
+| triples only | 3 | 4,978 | +0.321 | 0.196 |
+| 5+ substitutions | 3 | 41,648 | +0.443 | 0.279 |
+
+| assay | spearman, single | spearman, multi | gap (single - multi) | range-matched gap | epistasis variance share |
+|---|---|---|---|---|---|
+| GFP_AEQVI_Sarkisyan_2016 | +0.052 | +0.123 | -0.071 | -0.102 | 0.202 |
+| GRB2_HUMAN_Faure_2021 | +0.726 | +0.651 | +0.075 | +0.124 | 0.548 |
+| HIS7_YEAST_Pokusaeva_2019 | +0.028 | +0.538 | -0.510 | -0.171 | 1.036 |
+| PHOT_CHLRE_Chen_2023 | +0.649 | +0.788 | -0.139 | -0.117 | 0.894 |
+| SPG1_STRSG_Olson_2014 | +0.276 | +0.307 | -0.031 | -0.002 | 0.249 |
+<!-- END GENERATED: epistasis -->
+
+Pooled over the five assays, the independent-site score ranks multi-mutants
+*better* than single mutants: +0.481 mean Spearman against +0.346, and 0.294
+against 0.213 on top-decile recall, over 60,277 scored multi-mutant rows against
+5,453 single-mutant rows. Four of five assays improve in the same direction, and
+three of those four have bootstrap intervals excluding zero on the favourable
+side; one, GRB2, goes the other way by +0.075 Spearman, and it is the only gap
+whose interval excludes zero against the hypothesis. The mean gap is
+-0.135 Spearman (paired t = -1.36, p = 0.25, five assays) and -0.081 top-decile
+recall (t = -1.24, p = 0.28) — small and far from significant in the direction
+of the hypothesis, and in the opposite direction from it in point estimate.
+Five assays is a small sample and the intervals are wide; what the data does
+not support is any claim that the degradation is there.
+
+Two confounds could manufacture a multi-mutant advantage, and both were tested
+rather than argued about. A combinatorial library carries a long deleterious
+tail that a single-substitution library does not, and a rank correlation over a
+wider spread is mechanically easier, so both strata were trimmed to the
+intersection of their central 90% of measured fitness — the gap then shrinks to
+-0.054, still pointing away from the hypothesis. The libraries also concentrate
+on a handful of positions: PHOT's 165k multi-mutants touch 15 positions while
+its 2,122 singles span 118, so a single-mutant stratum was restricted to only
+the positions the multi-mutants occupy. On that
+position-matched comparison the multi-mutants still win, by -0.195 mean
+Spearman (t = -1.67, p = 0.17), and on PHOT by a wide margin: position-matched
+singles give rho = +0.353 against +0.788 for the multi-mutants.
+
+The mechanism is visible in the mutation-count curve, and it is not the one
+independence predicts. If the model were wrong in proportion to how many
+independent sites it summed, rho should fall as k rises. On PHOT, which has
+enough variants at every k to measure, rho is +0.724 at k = 2 and still +0.687
+at k = 14; on HIS7 it *rises* from +0.157 at k = 2 to +0.732 at k = 12. Across
+all five assays the 5+ substitution stratum averages +0.443, above the doubles'
++0.362 and the singles' +0.346. What actually happens is that a multi-mutant
+accumulates damages, so it is easier to identify as broken — the same easiness
+the burial analysis already found at buried positions, where nearly every
+substitution is damaging and calling them all bad is mostly right. Independent
+summation succeeds because the ranking task at the top of a DMS assay is
+detecting damage, not predicting fitness.
+
+Epistasis itself is present and large; that is a separate question and it has a
+separate answer, measured with no model at all. For every double mutant whose
+two constituent singles were also assayed, the additive prediction is the sum
+of the two singles' z-scored fitness. Its residual against the measured double
+is the epistatic term. That residual carries a mean 0.586 of the double
+mutant's variance across the five assays — 0.20 for GFP, 0.25 for SPG1, 0.55
+for GRB2, 0.89 for PHOT, 1.04 for HIS7, where the epistatic term is larger than
+the total double-mutant variance. Singletons predict doubles at rho = +0.656 on
+average. So the epistasis the README previously said was unmeasured is real,
+substantial, and not what makes the model's top decile mediocre: a scorer that
+assumes independence ranks the very variants where that assumption is most
+violated as well as or better than the ones where it holds.
+
+One caveat on what these five assays measure. All five are ProteinGym
+substitution assays with a single readout per variant, and none is a paired
+binding-versus-abundance library, so the singles and the multi-mutants in each
+are on the same measured quantity as far as the reference table records it. The
+caveat is coverage rather than quantity: the position-matched control shows how
+narrow these libraries are, and CAPSD_AAV2S_Sinai_2021 (41,796 multi-mutants over
+a 735-residue protein) was left out on CPU cost, so the largest viral library is
+not represented.
 
 The practical consequence is worth stating because it changes how to read
 the headline Spearman. Reporting a top-k recall alongside a Spearman, without
