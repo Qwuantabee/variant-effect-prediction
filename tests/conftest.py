@@ -26,3 +26,13 @@ def require(condition, message):
 @pytest.fixture(scope="session")
 def require_data():
     return require
+
+
+@pytest.fixture
+def published_scores_present():
+    """Fail (not skip) when the published per-assay table is missing."""
+    from pathlib import Path
+    path = Path(__file__).resolve().parent.parent / "data" / \
+        "official_spearman_dms_level.csv"
+    require(path.exists(), "published per-assay table not downloaded "
+            "(run src/variant_effect/data.py)")

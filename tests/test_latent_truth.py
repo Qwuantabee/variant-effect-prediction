@@ -19,6 +19,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "src"))
 
 import run_latent_truth_test as lt  # noqa: E402
+from conftest import require  # noqa: E402
 
 
 def test_threshold_is_a_thousand_shared_variants():
@@ -32,12 +33,10 @@ def test_pair_shared_drops_pairs_below_the_threshold():
     """A pair listed as 32 shared variants cannot be in the analysis even if
     the summary table carried it."""
     path = ROOT / "results" / "topk" / "cross_assay_ceiling.csv"
-    if not path.exists():
-        pytest.skip("ceiling table not present")
+    require(path.exists(), "ceiling table not present")
     d = pd.read_csv(path)
     want = d[d["n_shared"] >= lt.MIN_SHARED]
-    if not len(want):
-        pytest.skip("no pair passes the threshold")
+    require(len(want) > 0, "no pair passes the threshold")
 
     # exercise the filter on a synthetic frame rather than loading 46 assays
     fake = pd.DataFrame({
@@ -137,12 +136,10 @@ def test_cached_tables_are_keyed_by_protein_not_assay():
     same positions three and six times over. Checked on the cache directory
     the run actually writes."""
     ceiling = ROOT / "results" / "topk" / "cross_assay_ceiling.csv"
-    if not ceiling.exists():
-        pytest.skip("ceiling table not present")
+    require(ceiling.exists(), "ceiling table not present")
     d = pd.read_csv(ceiling)
     d = d[d["n_shared"] >= lt.MIN_SHARED]
-    if not len(d):
-        pytest.skip("no pair passes the threshold")
+    require(len(d) > 0, "no pair passes the threshold")
     per_protein = d["uniprot"].nunique()
     per_assay = len(set(d["assay_a"]) | set(d["assay_b"]))
     # the invariant the cache relies on: fewer proteins than assays, because
@@ -155,8 +152,7 @@ def test_committed_results_are_internally_consistent():
     coherent: the pairs it summarises are the threshold-passing pairs, and the
     paired counts add up."""
     path = ROOT / "results" / "latent_truth" / "summary.json"
-    if not path.exists():
-        pytest.skip("latent-truth run has not completed")
+    require(path.exists(), "latent-truth run has not completed")
     import json
     s = json.loads(path.read_text())
     a = s["assays"]
@@ -178,8 +174,7 @@ def test_model_and_assay_columns_are_not_transposed():
     the pool. The assay row is ~1 by construction (it is half the target) and
     the model row must not be."""
     path = ROOT / "results" / "latent_truth" / "per_pair.csv"
-    if not path.exists():
-        pytest.skip("latent-truth run has not completed")
+    require(path.exists(), "latent-truth run has not completed")
     d = pd.read_csv(path)
     assert d["recall_a_to_pooled"].median() > 0.9
     assert d["recall_model_to_pooled"].median() < 0.6
@@ -190,8 +185,7 @@ def test_truth_vs_truth_reproduces_the_published_ceiling():
     or the comparison in the README is between two different populations
     again."""
     path = ROOT / "results" / "latent_truth" / "summary.json"
-    if not path.exists():
-        pytest.skip("latent-truth run has not completed")
+    require(path.exists(), "latent-truth run has not completed")
     import json
     s = json.loads(path.read_text())
     assert s["assays"]["median_recall_truth_vs_truth"] == pytest.approx(
@@ -203,8 +197,7 @@ def test_pooled_target_is_never_a_nan_target():
     a failing pair look like a missing one. Every row has a finite recall
     against both targets."""
     path = ROOT / "results" / "latent_truth" / "per_pair.csv"
-    if not path.exists():
-        pytest.skip("latent-truth run has not completed")
+    require(path.exists(), "latent-truth run has not completed")
     d = pd.read_csv(path)
     for col in ("recall_model_to_single", "recall_model_to_pooled",
                 "recall_truth_vs_truth", "split_half_reliability"):
@@ -216,8 +209,7 @@ def test_gain_vs_reliability_is_reported():
     recall, and the README says so. Both correlations have to be in the
     summary, or the prose is uncited."""
     path = ROOT / "results" / "latent_truth" / "summary.json"
-    if not path.exists():
-        pytest.skip("latent-truth run has not completed")
+    require(path.exists(), "latent-truth run has not completed")
     import json
     s = json.loads(path.read_text())
     g = s["assays"]["gain_vs_reliability"]
@@ -226,3 +218,129 @@ def test_gain_vs_reliability_is_reported():
     assert -1.0 <= g["spearman_gain_spearman"] <= 1.0
     # the two metrics must not be the same column wearing two names
     assert g["recall_gain_spearman"] != g["spearman_gain_spearman"]
+
+
+
+# ----------------------------------------------------------------------
+# review C9 / C4: tests that call the code they are named after
+# ----------------------------------------------------------------------
+
+def _fake_scores(mapping):
+    def loader(assay_id):
+        s = pd.Series(mapping[assay_id])
+        s.index.name = "mutant"
+        return s
+    return loader
+
+
+def test_pair_shared_really_applies_both_thresholds(monkeypatch):
+    """The older test of this name re-implemented the filter on a frame and never
+    called pair_shared. This one does. Pair 1 is dropped by the CSV n_shared;
+    pair 2 claims enough shared variants in the CSV but the assays only overlap
+    in 3 rows; pair 3 passes; and the returned arrays are aligned to the shared
+    variant list."""
+    big = {f"A{i}V": float(i) for i in range(1, 1201)}
+    big_b = {f"A{i}V": float(-i) for i in range(1, 1201)}
+    tiny_a = {"A1V": 1.0, "A2V": 2.0, "A3V": 3.0, "A4V": 4.0}
+    tiny_b = {"A1V": 1.0, "A2V": 2.0, "A3V": 3.0, "C9V": 9.0}
+    monkeypatch.setattr(lt, "_scores", _fake_scores({
+        "big_a": big, "big_b": big_b, "tiny_a": tiny_a, "tiny_b": tiny_b}))
+    pairs = pd.DataFrame({
+        "uniprot": ["P1", "P2", "P3"],
+        "assay_a": ["big_a", "tiny_a", "big_a"],
+        "assay_b": ["big_b", "tiny_b", "big_b"],
+        "n_shared": [lt.MIN_SHARED - 1, lt.MIN_SHARED + 5, lt.MIN_SHARED + 5],
+        "different_quantity": [False, False, True],
+    })
+    out = lt.pair_shared(pairs)
+    assert [o["uniprot"] for o in out] == ["P3"]
+    o = out[0]
+    assert o["different_quantity"] is True
+    assert len(o["shared"]) == 1200
+    # sa and sb are aligned to 'shared'
+    first = o["shared"][0]
+    assert o["sa"][0] == big[first] and o["sb"][0] == big_b[first]
+
+
+def test_pair_shared_keeps_doubles_spelled_in_opposite_orders(tmp_path,
+                                                              monkeypatch):
+    """C4 on the real loader: 1,100 doubles, half written in reverse order in
+    assay A. A raw join keeps 550; the canonical one keeps 1,100."""
+    monkeypatch.setattr(lt.data, "ASSAY_DIR", tmp_path)
+    rows_a, rows_b = [], []
+    for i in range(1, 1101):
+        fwd = f"A{i}V:G{i + 1}L"
+        rev = f"G{i + 1}L:A{i}V"
+        rows_a.append((rev if i % 2 else fwd, float(i)))
+        rows_b.append((fwd, float(i) * 2))
+    pd.DataFrame(rows_a, columns=["mutant", "DMS_score"]).to_csv(
+        tmp_path / "S_A.csv", index=False)
+    pd.DataFrame(rows_b, columns=["mutant", "DMS_score"]).to_csv(
+        tmp_path / "S_B.csv", index=False)
+    pairs = pd.DataFrame({"uniprot": ["S"], "assay_a": ["S_A"],
+                          "assay_b": ["S_B"], "n_shared": [1100],
+                          "different_quantity": [False]})
+    out = lt.pair_shared(pairs)
+    assert len(out) == 1 and len(out[0]["shared"]) == 1100
+    raw_overlap = (set(r[0] for r in rows_a) & set(r[0] for r in rows_b))
+    assert len(raw_overlap) == 550
+
+
+def test_canonical_scores_reports_duplicates_it_drops(tmp_path, monkeypatch):
+    from variant_effect import data
+    monkeypatch.setattr(data, "ASSAY_DIR", tmp_path)
+    pd.DataFrame([("A1V:G2L", 1.0), ("G2L:A1V", 5.0), ("C3W", 2.0),
+                  ("D4E", np.nan)],
+                 columns=["mutant", "DMS_score"]).to_csv(
+        tmp_path / "D.csv", index=False)
+    s = data.canonical_scores("D")
+    assert list(s.index) == ["A1V:G2L", "C3W"]
+    assert s["A1V:G2L"] == 1.0               # first row kept
+    assert s.attrs["duplicates_dropped"] == 1
+    assert s.attrs["unparseable"] == 0
+
+
+def test_paired_report_rounds_float_noise_so_ties_stay_tied():
+    """The review's C5 discovery: recall differences are multiples of 0.05 but
+    carry 17th-digit noise, which splits ties and moves the Wilcoxon p. After
+    rounding, mathematically equal differences must be equal, and the p must not
+    depend on the noise."""
+    base = np.array([0.05, 0.05, 0.05, 0.1, 0.1, 0.15, -0.05, -0.05, 0.2,
+                     0.25, -0.1, 0.05])
+    noisy_a = base + np.array([1e-17, -3e-17, 2e-17, 5e-17, -4e-17, 1e-17,
+                               -2e-17, 3e-17, 0, 1e-17, -1e-17, 2e-17])
+    noisy_b = base - np.array([2e-17, 1e-17, -3e-17, 1e-17, 5e-17, -2e-17,
+                               4e-17, -1e-17, 1e-17, -3e-17, 2e-17, -1e-17])
+    ra = lt.paired_report(noisy_a)
+    rb = lt.paired_report(noisy_b)
+    assert ra["p"] == pytest.approx(rb["p"], abs=1e-12)
+    assert ra["statistic"] == rb["statistic"]
+    # unrounded, the same two vectors give different p-values
+    from scipy import stats
+    assert (stats.wilcoxon(noisy_a, method="approx").pvalue
+            != stats.wilcoxon(noisy_b, method="approx").pvalue)
+
+
+def test_paired_report_returns_every_method_and_the_unit_counts():
+    d = np.array([0.1, 0.05, 0.2, -0.05, 0.0, 0.15, 0.1, 0.05, 0.3, 0.1])
+    r = lt.paired_report(d, seed=1)
+    for key in ("p", "p_exact", "p_signflip", "statistic", "n_better",
+                "n_worse", "n_zero", "median_diff", "method"):
+        assert key in r
+    assert (r["n_better"], r["n_worse"], r["n_zero"]) == (8, 1, 1)
+    assert 0 < r["p_signflip"] <= 1
+
+
+def test_summarise_has_a_protein_level_primary_test_and_collapses_repeats():
+    """Eight pairs from two proteins (six from one): the protein-level test has
+    two units, the pair-level one eight."""
+    df = _synthetic(pairs=8, gain=0.2)
+    df["uniprot"] = ["PA"] * 6 + ["PB"] * 2
+    s = lt.summarise(df, "x")
+    assert s["wilcoxon_model_pooled_minus_single"]["n_units"] == 8
+    assert "protein_level_recall_gain" not in s       # two units: below 8
+    df2 = _synthetic(pairs=16, gain=0.2)
+    df2["uniprot"] = [f"P{i // 2}" for i in range(16)]
+    s2 = lt.summarise(df2, "y")
+    assert s2["protein_level_recall_gain"]["n_units"] == 8
+    assert s2["wilcoxon_model_pooled_minus_single"]["n_units"] == 16

@@ -118,10 +118,10 @@ LOW_RELIABILITY = 0.3
 # ----------------------------------------------------------------------
 
 def _scores(assay_id):
-    d = pd.read_csv(data.ASSAY_DIR / f"{assay_id}.csv",
-                    usecols=["mutant", "DMS_score"])
-    d = d[np.isfinite(d["DMS_score"])]
-    return d.set_index("mutant")["DMS_score"]
+    """DMS_score per variant, keyed by the canonical mutant string (see
+    data.canonical_scores): a raw-string key drops doubles that two labs wrote
+    in different substitution orders."""
+    return data.canonical_scores(assay_id)
 
 
 def pair_shared(pairs, min_shared=MIN_SHARED):
@@ -335,6 +335,77 @@ def analyse(pairs, tables):
     return pd.DataFrame(rows)
 
 
+TIE_DECIMALS = 9
+N_SIGNFLIP = 200000
+
+
+def paired_report(diff, seed=0):
+    """Paired test of a per-unit difference, with every method named.
+
+    The input is one difference per unit (a pair, or a protein). Recall at k =
+    10 averaged over two targets takes only multiples of 0.05, so the
+    differences are heavily TIED, but they are computed by subtracting floats
+    and differ in the 17th digit (0.30000000000000004 vs 0.3). Left alone, that
+    noise decides which tied differences get which rank, and the Wilcoxon p
+    moves with it: on this repo's 32 pairs the unrounded differences give
+    p = 0.063 or 0.049 depending on the scipy version and the order the floats
+    were produced in, while the properly tied differences give 0.066. So the
+    differences are ROUNDED TO 9 DECIMALS before any rank is taken.
+
+    Reported, none chosen for the number it gives:
+      p                  scipy.stats.wilcoxon, zero_method='wilcox' (zeros
+                         dropped), method='approx' (the normal approximation
+                         with scipy's tie correction, which is the one valid
+                         with tied ranks)
+      p_exact            same, method='exact' (assumes no ties; shown because a
+                         reader will try it)
+      p_signflip         Monte Carlo sign-flip permutation test on the MEAN
+                         difference over the non-zero units (two-sided, N_SIGNFLIP
+                         flips, seeded); exact in its null whatever the ties
+    """
+    d = np.asarray(diff, dtype=float)
+    d = d[np.isfinite(d)]
+    d = np.round(d, TIE_DECIMALS)
+    nzd = d[d != 0]
+    out = {
+        "n_units": int(len(d)),
+        "n_zero": int((d == 0).sum()),
+        "n_better": int((d > 0).sum()),
+        "n_worse": int((d < 0).sum()),
+        "median_diff": float(np.median(d)) if len(d) else float("nan"),
+        "mean_diff": float(np.mean(d)) if len(d) else float("nan"),
+        "tie_rounding_decimals": TIE_DECIMALS,
+        "method": "scipy.stats.wilcoxon(zero_method='wilcox', "
+                  "method='approx'); differences rounded to "
+                  f"{TIE_DECIMALS} decimals so float noise does not split ties",
+    }
+    if len(d) >= 8 and len(nzd) >= 1:
+        w = stats.wilcoxon(d, zero_method="wilcox", method="approx")
+        out["statistic"] = float(w.statistic)
+        out["p"] = float(w.pvalue)
+        try:
+            out["p_exact"] = float(stats.wilcoxon(
+                d, zero_method="wilcox", method="exact").pvalue)
+        except Exception:
+            out["p_exact"] = float("nan")
+        rng = np.random.default_rng(seed)
+        signs = rng.choice([-1.0, 1.0], size=(N_SIGNFLIP, len(nzd)))
+        obs = abs(nzd.mean())
+        flips = np.abs((signs * nzd).mean(axis=1))
+        out["p_signflip"] = float((np.sum(flips >= obs - 1e-12) + 1)
+                                  / (N_SIGNFLIP + 1))
+    return out
+
+
+def protein_level(d, col):
+    """One value per protein: the mean of col over that protein's pairs.
+
+    The 32 pairs cover 20 proteins and 14 of the 46 assays appear in more than
+    one pair (P53 has 6 pairs), so pairs are not independent. Averaging within
+    a protein gives one unit per protein."""
+    return d.groupby("uniprot")[col].mean()
+
+
 def summarise(df, subset_name):
     """Paired statistics. Every comparison here is on the same variants of the
     same pairs -- no median is set against a mean of a different population."""
@@ -363,31 +434,38 @@ def summarise(df, subset_name):
         "median_noise_sd_z": float(d["noise_sd_z"].median()),
         "n_low_reliability": int(d["low_reliability"].sum()),
     }
-    # paired Wilcoxon: model vs pooled target minus model vs single assay
-    diff = (d["recall_model_to_pooled"] - d["recall_model_to_single"]).to_numpy()
-    nz = diff[np.isfinite(diff)]
-    if len(nz) >= 8 and np.any(nz != 0):
-        w = stats.wilcoxon(nz)
+    # Paired tests. PROTEIN-level is the primary one (one unit per protein);
+    # PAIR-level is secondary because the pairs share proteins and assays.
+    diff = (d["recall_model_to_pooled"] - d["recall_model_to_single"])
+    d = d.assign(_recall_gain=diff.to_numpy())
+    pair_rep = paired_report(diff.to_numpy())
+    if "p" in pair_rep:
         out["wilcoxon_model_pooled_minus_single"] = {
-            "median_diff": float(np.median(nz)),
-            "mean_diff": float(np.mean(nz)),
-            "n_pairs_pooled_better": int((nz > 0).sum()),
-            "n_pairs_single_better": int((nz < 0).sum()),
-            "statistic": float(w.statistic),
-            "p": float(w.pvalue),
+            **pair_rep,
+            "level": "pair (secondary)",
+            "n_pairs_pooled_better": pair_rep["n_better"],
+            "n_pairs_single_better": pair_rep["n_worse"],
         }
+    prot_rep = paired_report(protein_level(d, "_recall_gain").to_numpy())
+    if "p" in prot_rep:
+        out["protein_level_recall_gain"] = {**prot_rep,
+                                            "level": "protein (primary)"}
     # and the same comparison on rank correlation, which is not bounded by 11
     diff_r = (d["spearman_model_to_pooled"]
-              - d["spearman_model_to_single"]).to_numpy()
-    diff_r = diff_r[np.isfinite(diff_r)]
-    if len(diff_r) >= 8 and np.any(diff_r != 0):
-        w = stats.wilcoxon(diff_r)
+              - d["spearman_model_to_single"])
+    d = d.assign(_spearman_gain=diff_r.to_numpy())
+    rep_r = paired_report(diff_r.to_numpy())
+    if "p" in rep_r:
         out["wilcoxon_spearman_pooled_minus_single"] = {
-            "median_diff": float(np.median(diff_r)),
-            "n_pairs_pooled_better": int((diff_r > 0).sum()),
-            "n_pairs_single_better": int((diff_r < 0).sum()),
-            "p": float(w.pvalue),
+            **rep_r,
+            "level": "pair (secondary)",
+            "n_pairs_pooled_better": rep_r["n_better"],
+            "n_pairs_single_better": rep_r["n_worse"],
         }
+    prot_r = paired_report(protein_level(d, "_spearman_gain").to_numpy())
+    if "p" in prot_r:
+        out["protein_level_spearman_gain"] = {**prot_r,
+                                              "level": "protein (primary)"}
     # does the gain concentrate where the two assays agree least? if it does,
     # the pooled target is least like a latent truth exactly where it helps
     # the model most, which limits how the gain may be read
@@ -413,14 +491,21 @@ def summarise(df, subset_name):
 
     # truth-vs-truth also rises against the pool: the ceiling itself was
     # attenuated, which is the audit's point stated as a measurement
+    # NOTE (review C13): assay A is HALF of the pooled target, so scoring A
+    # against the pool counts A's own measurement noise as signal. This gain is
+    # therefore partly SELF-INCLUSION, a diagnostic that says nothing about
+    # whether 0.350 could be exceeded by a predictor independent of both
+    # assays. scripts/sim_pooling_controls.py measures how large the
+    # self-inclusion effect is on simulated assays (with no shared signal at
+    # all it already lifts A-vs-pool recall far above A-vs-B recall).
     diff_t = (d["recall_a_to_pooled"]
               - d["recall_truth_vs_truth"]).to_numpy()
-    diff_t = diff_t[np.isfinite(diff_t)]
-    if len(diff_t) >= 8 and np.any(diff_t != 0):
+    rep_t = paired_report(diff_t)
+    if "p" in rep_t:
         out["wilcoxon_assay_to_pooled_minus_truth_vs_truth"] = {
-            "median_diff": float(np.median(diff_t)),
-            "p": float(stats.wilcoxon(diff_t).pvalue),
-        }
+            "median_diff": rep_t["median_diff"], "p": rep_t["p"],
+            "note": "assay is half of the pooled target: self-inclusion, "
+                    "diagnostic only"}
     return out
 
 

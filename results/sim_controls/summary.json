@@ -1,0 +1,38 @@
+{
+  "seed": 0,
+  "top_frac": 0.1,
+  "k": 10,
+  "selfinclusion": {
+    "no_shared_signal": {
+      "a_to_b": 0.10875,
+      "a_to_pooled": 0.8547500000000001,
+      "b_to_pooled": 0.8447500000000001,
+      "latent_to_single_a": 0.0955,
+      "latent_to_pooled": 0.09725000000000002,
+      "self_inclusion_gain_a_to_pooled_minus_a_to_b": 0.7460000000000001
+    },
+    "shared_latent": {
+      "a_to_b": 0.7635000000000001,
+      "a_to_pooled": 0.99775,
+      "b_to_pooled": 0.99675,
+      "latent_to_single_a": 0.9445000000000001,
+      "latent_to_pooled": 0.99125,
+      "self_inclusion_gain_a_to_pooled_minus_a_to_b": 0.23424999999999996
+    },
+    "noise_sd_z": 0.5949654177873307,
+    "n_variants": 2000,
+    "reps": 400
+  },
+  "decile_reliability": {
+    "sigma_hat": 0.5945084121856161,
+    "formula_reliability": -1.1404763495842432,
+    "var_observed_in_subset": 0.168498452897967,
+    "var_latent_in_subset": 0.29841691098792045,
+    "corr_a_b_in_subset": 0.32320987095721854,
+    "corr_latent_a_in_subset": 0.4801745279312217,
+    "noise_sd_z": 0.5949654177873307,
+    "n_variants": 2000,
+    "reps": 400,
+    "share_of_reps_with_negative_formula": 1.0
+  }
+}
