@@ -151,3 +151,60 @@ def test_spearman_brown_gives_the_pooled_reliability():
 
 def test_reliability_ceiling_of_nan_is_nan():
     assert np.isnan(pooled_truth.reliability_ceiling(np.nan))
+
+
+
+# ----------------------------------------------------------------------
+# rank pooling, and Spearman-Brown only for parallel measures (review C1)
+# ----------------------------------------------------------------------
+
+def test_rank_pool_beats_z_pool_when_one_assay_is_a_monotone_nonlinear_map():
+    """A z-score removes only an affine scale difference. If assay B is a
+    monotone NONLINEAR function of the same latent value (as SPG1's lnW vs
+    Fitness), pooling z-scores lets B's heavy tail dominate; pooling
+    rank-normalised scores does not. Planted: B = exp(2 * (latent + noise))."""
+    rng = np.random.default_rng(11)
+    n = 6000
+    truth = rng.normal(0, 1, n)
+    a = truth + rng.normal(0, 0.6, n)
+    b = np.exp(2.0 * (truth + rng.normal(0, 0.6, n)))
+    r_z = stats.spearmanr(pooled_truth.pool_z(a, b), truth).statistic
+    r_rank = stats.spearmanr(pooled_truth.pool_rank(a, b), truth).statistic
+    assert r_rank > r_z + 0.01
+    # and the rank pool still beats either assay alone
+    assert r_rank > stats.spearmanr(a, truth).statistic
+    assert r_rank > stats.spearmanr(b, truth).statistic
+
+
+def test_rank_pool_is_invariant_to_any_monotone_transform_of_either_assay():
+    rng = np.random.default_rng(12)
+    a = rng.normal(size=500)
+    b = a + rng.normal(size=500)
+    base = pooled_truth.pool_rank(a, b)
+    moved = pooled_truth.pool_rank(np.exp(3 * a), -1.0 / (1.0 + np.exp(-b)) * -7)
+    assert np.allclose(base, moved)
+
+
+def test_rank_normalise_is_symmetric_and_nan_safe():
+    v = np.array([-3.5, np.nan] + list(np.arange(20.0) + 0.5))
+    out = pooled_truth.rank_normalise(v)
+    assert np.isnan(out[1])
+    finite = out[np.isfinite(out)]
+    assert abs(finite.mean()) < 1e-9
+    assert np.isnan(pooled_truth.rank_normalise(np.arange(5.0))).all()
+
+
+def test_pool_rank_is_nan_where_either_assay_is_missing():
+    a = np.linspace(0, 1, 30)
+    b = np.linspace(1, 0, 30) ** 2
+    a[4] = np.nan
+    out = pooled_truth.pool_rank(a, b)
+    assert np.isnan(out[4]) and np.isfinite(out[5])
+
+
+def test_spearman_brown_is_refused_for_a_non_parallel_pair():
+    """2r/(1+r) is the reliability of a pool of PARALLEL measures. For a pair
+    that is not parallel the function must not hand back a number that looks
+    like a reliability."""
+    assert pooled_truth.reliability_ceiling(0.5) == pytest.approx(2 / 3)
+    assert np.isnan(pooled_truth.reliability_ceiling(0.5, parallel=False))

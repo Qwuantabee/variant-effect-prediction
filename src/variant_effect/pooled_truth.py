@@ -71,13 +71,16 @@ def pool_z(a, b):
 
 
 def split_half_reliability(a, b):
-    """Correlation between the two replicate measurements, z-scored.
+    """Rank correlation between two measurements of the same variants.
 
-    This is the split-half reliability of the pair: the share of the ordering
-    one assay reproduces in the other. It equals the correlation of the pooled
-    estimate with the latent value only under the equal-error, independent-
-    error assumptions above -- but as a first-order diagnostic it is exact,
-    because Spearman is invariant to the affine z-scoring.
+    CALL THIS A RELIABILITY ONLY FOR PARALLEL MEASURES. It is the plain
+    inter-assay Spearman. It is a split-half reliability -- the share of the
+    ordering one assay reproduces in the other -- only if both assays measure
+    the same underlying score with independent noise (see
+    variant_effect.quantity.pair_status). For an expression-vs-binding pair, or
+    two assays reported on non-affinely-related scales, a low value mixes noise
+    with a real difference in what was measured and with scale nonlinearity,
+    and must be read as "agreement", not "reliability".
 
     Spearman rather than Pearson because the assays are only ordinal
     comparably across reporters; and because the repo's headline metric is a
@@ -105,15 +108,59 @@ def pooled_noise_sd(a, b):
     return float((za[ok] - zb[ok]).std(ddof=1) / np.sqrt(2.0))
 
 
-def reliability_ceiling(split_half):
+def reliability_ceiling(split_half, parallel=True):
     """Spearman-Brown: the reliability of the *pooled* measure implied by the
     reliability of one measurement.
+
+    VALID ONLY FOR PARALLEL MEASURES of one true score (equal true-score
+    loading, independent errors). Pass parallel=False for a pair that
+    quantity.pair_status says is not parallel (different quantity, different
+    scale): the formula then has no meaning and NaN is returned instead of a
+    number that looks like a reliability.
 
     ``2r / (1 + r)`` is the standard correction for doubling the number of
     measurements, and it states quantitatively what pooling buys: a pair at
     r = 0.5 gives a pooled target at 0.667, not at 1.0.
     """
+    if not parallel:
+        return np.nan
     r = float(split_half)
     if not np.isfinite(r) or r <= -1.0:
         return np.nan
     return float(2.0 * r / (1.0 + r))
+
+
+def rank_normalise(values):
+    """Rank-based inverse-normal scores over the finite entries.
+
+    Average ranks (ties share), then Phi^-1((rank - 0.5) / n). Unlike a z-score
+    this removes any MONOTONE difference between two assays' scales, not just an
+    affine one: SPG1's Olson lnW and Wu Fitness have a high Spearman but a lower
+    Pearson(z_A, z_B) on the singles, because the scales are related by a
+    nonlinear monotone map, which a z-score leaves in place.
+    Fewer than 10 finite entries stays NaN.
+    """
+    v = np.asarray(values, dtype=float)
+    ok = np.isfinite(v)
+    out = np.full(v.shape, np.nan)
+    if ok.sum() < 10:
+        return out
+    r = stats.rankdata(v[ok], method="average")
+    out[ok] = stats.norm.ppf((r - 0.5) / ok.sum())
+    return out
+
+
+def pool_rank(a, b):
+    """Mean of two rank-normalised measurements; NaN where either is missing.
+
+    The scale-robust sibling of pool_z: use it when the two assays' scales are
+    not known to be affinely related. It still assumes the two assays measure
+    one quantity -- rank-normalising cannot make expression and binding the
+    same thing.
+    """
+    za = rank_normalise(a)
+    zb = rank_normalise(b)
+    ok = np.isfinite(za) & np.isfinite(zb)
+    out = np.full(za.shape, np.nan)
+    out[ok] = (za[ok] + zb[ok]) / 2.0
+    return out

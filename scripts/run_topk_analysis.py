@@ -43,7 +43,7 @@ from scipy import stats
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from variant_effect import assay_stats, data, evaluate  # noqa: E402
+from variant_effect import assay_stats, data, evaluate, quantity  # noqa: E402
 
 OUT = ROOT / "results" / "topk"
 
@@ -53,38 +53,9 @@ OUT = ROOT / "results" / "topk"
 # pairs most likely to understate the ceiling. They are kept: they make the
 # ceiling a lower bound, which is the conservative direction for the claim
 # that the model is already at it. Flagged so the reading is explicit.
-DIFFERENT_QUANTITY = {
-    frozenset(("CAR11_HUMAN_Meitlis_2020_gof", "CAR11_HUMAN_Meitlis_2020_lof")),
-    frozenset(("RPC1_LAMBD_Li_2019_high-expression",
-               "RPC1_LAMBD_Li_2019_low-expression")),
-    frozenset(("KCNE1_HUMAN_Muhammad_2023_expression",
-               "KCNE1_HUMAN_Muhammad_2023_function")),
-    frozenset(("OXDA_RHOTO_Vanella_2023_activity",
-               "OXDA_RHOTO_Vanella_2023_expression")),
-    frozenset(("HXK4_HUMAN_Gersing_2022_activity",
-               "HXK4_HUMAN_Gersing_2023_abundance")),
-    frozenset(("VKOR1_HUMAN_Chiasson_2020_abundance",
-               "VKOR1_HUMAN_Chiasson_2020_activity")),
-    frozenset(("KCNJ2_MOUSE_Coyote-Maestas_2022_function",
-               "KCNJ2_MOUSE_Coyote-Maestas_2022_surface")),
-    frozenset(("PTEN_HUMAN_Matreyek_2021", "PTEN_HUMAN_Mighell_2018")),
-    frozenset(("Q53Z42_HUMAN_McShan_2019_binding-TAPBPR",
-               "Q53Z42_HUMAN_McShan_2019_expression")),
-    frozenset(("RASK_HUMAN_Weng_2022_abundance",
-               "RASK_HUMAN_Weng_2022_binding-DARPin_K55")),
-    frozenset(("S22A1_HUMAN_Yee_2023_abundance",
-               "S22A1_HUMAN_Yee_2023_activity")),
-    frozenset(("CP2C9_HUMAN_Amorosi_2021_abundance",
-               "CP2C9_HUMAN_Amorosi_2021_activity")),
-    frozenset(("SPIKE_SARS2_Starr_2020_binding",
-               "SPIKE_SARS2_Starr_2020_expression")),
-    frozenset(("P53_HUMAN_Giacomelli_2018_Null_Etoposide",
-               "P53_HUMAN_Giacomelli_2018_Null_Nutlin")),
-    frozenset(("P53_HUMAN_Giacomelli_2018_Null_Etoposide",
-               "P53_HUMAN_Giacomelli_2018_WT_Nutlin")),
-    frozenset(("P53_HUMAN_Giacomelli_2018_Null_Nutlin",
-               "P53_HUMAN_Giacomelli_2018_WT_Nutlin")),
-}
+# The list itself lives in variant_effect.quantity, where pooled_truth callers can
+# consult it; this name is kept so existing imports and the README renderer work.
+DIFFERENT_QUANTITY = quantity.DIFFERENT_QUANTITY
 
 MIN_SHARED = 200
 
