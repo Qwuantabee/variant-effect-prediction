@@ -683,15 +683,22 @@ neither level: it is that AIDO's viral mean (0.521) is barely below its
 non-viral mean (0.545), a gap of −0.024, and Protriever is flatter still at
 +0.018 over the 200 assays where it is reported. So the headline is not the
 interesting part: the interesting part is that both retrieval methods have
-nearly closed a gap that costs ESM-2 650M 0.198 of its 0.466 -- about 43% of
-its correlation on non-viral assays. That is the same conclusion the
+nearly closed a gap that costs ESM-2 650M 0.198 of its 0.414 non-viral
+correlation -- about 48% of it. (An earlier version of this sentence divided
+by 0.466, which is ESM-C's non-viral mean and not ESM-2's; the family mean is
+0.397 and 650M's own headline is 0.414, which puts the same gap at 47.8% or
+49.9% depending on which you take. The conclusion does not depend on the
+denominator.) That is the same conclusion the
 alignment comparison reached from the other direction, on a different class
 of method, and it is why the practical recommendation for a viral target in
 the section above is not "use a bigger language model".
 
 The one row that does not fit: RITA, an autoregressive sequence model, has a
-*slightly positive* gap (+0.021). It is also the lowest-scoring family on
-non-viral assays here, so its flatness is more likely to be a ceiling effect
+*slightly positive* gap (+0.021). It is also the lowest-scoring **sequence-only**
+family on non-viral assays here (0.355, against 0.393 to 0.481 for the others;
+the lowest figure in the whole table, 0.346, belongs to Tranception without
+retrieval, which reads an alignment and so is not the relevant comparison), so
+its flatness is more likely to be a ceiling effect
 than a genuine viral strength -- a model that averages 0.355 where the other
 sequence-only families average 0.39 to 0.47 has less to lose. The pattern is
 reported with that row in it rather than trimmed, because trimming a single
