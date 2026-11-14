@@ -122,3 +122,63 @@ class ClusterIndex:
 def expand(weights):
     """Row indices that realise integer weights: index i repeated w_i times."""
     return np.repeat(np.arange(len(weights)), np.asarray(weights, dtype=np.int64))
+
+
+def gap_bootstrap(fn, single, double, mutants_s=None, mutants_d=None,
+                  n_boot=1000, seed=0, min_n=30, joint=False):
+    """Percentile CI on fn(single) - fn(double) for two variant strata.
+
+    single and double are (pred, truth) pairs; fn(pred, truth) -> float is a
+    metric such as Spearman or top-decile recall. With joint=True fn takes both
+    strata, fn((pred_s, truth_s), (pred_d, truth_d)) -> the gap itself, for
+    controls that need both strata at once (a range-matched window). Returns
+    (point, lo, hi, sd) with NaN where a stratum has fewer than min_n rows or
+    fewer than 50 replicates are finite.
+
+    RESAMPLING UNIT, stated because it decides whether an interval excludes 0:
+
+      * mutants_s and mutants_d given (the mutant strings of each stratum): the
+        POSITION. One draw of positions is shared by BOTH strata -- they sit on
+        the same positions, so the singles' and the doubles' resampling noise
+        is correlated through the positions and a joint draw is the honest
+        one. Variants are weighted by the product of their positions'
+        multiplicities (see ClusterIndex). Use this for every real analysis.
+      * mutants_s / mutants_d omitted: the VARIANT, each stratum resampled
+        independently with iid row draws. Valid only when the rows really are
+        independent (synthetic tests, or data with one row per position).
+    """
+    ps, ts = np.asarray(single[0], float), np.asarray(single[1], float)
+    pd_, td = np.asarray(double[0], float), np.asarray(double[1], float)
+    ns, nd = len(ps), len(pd_)
+    nan4 = (np.nan, np.nan, np.nan, np.nan)
+    if ns < min_n or nd < min_n:
+        return nan4
+    rng = np.random.default_rng(seed)
+    if (mutants_s is None) != (mutants_d is None):
+        raise ValueError("pass mutants for both strata or for neither")
+    index = None
+    if mutants_s is not None:
+        index = ClusterIndex.from_mutants(list(mutants_s) + list(mutants_d))
+    gaps = []
+    for _ in range(n_boot):
+        if index is not None:
+            w = index.draw(rng)
+            si, di = expand(w[:ns]), expand(w[ns:])
+            if len(si) < min_n or len(di) < min_n:
+                continue
+        else:
+            si = rng.integers(0, ns, ns)
+            di = rng.integers(0, nd, nd)
+        if joint:
+            g = fn((ps[si], ts[si]), (pd_[di], td[di]))
+        else:
+            g = fn(ps[si], ts[si]) - fn(pd_[di], td[di])
+        if np.isfinite(g):
+            gaps.append(g)
+    if len(gaps) < 50:
+        return nan4
+    gaps = np.asarray(gaps)
+    point = (fn((ps, ts), (pd_, td)) if joint
+             else fn(ps, ts) - fn(pd_, td))
+    return (float(point), float(np.percentile(gaps, 2.5)),
+            float(np.percentile(gaps, 97.5)), float(gaps.std(ddof=1)))

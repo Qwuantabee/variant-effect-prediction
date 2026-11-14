@@ -107,3 +107,76 @@ def test_cluster_ci_brackets_the_point_estimate():
     lo, hi = evaluate.spearman_ci(pred, truth, n_boot=300, seed=1,
                                   groups=groups)
     assert lo <= rho <= hi
+
+
+# ----------------------------------------------------------------------
+# gap_bootstrap: the singles-minus-doubles interval
+# ----------------------------------------------------------------------
+
+def _two_strata_on_shared_positions(n_pos=40, per_single=1, per_double=30,
+                                    seed=0):
+    """Singles and doubles on a shared position set. Truth and prediction in
+    the DOUBLE stratum carry a shared per-position-pair effect with no
+    within-pair variation, so a variant-level bootstrap is badly overconfident
+    about the doubles."""
+    rng = np.random.default_rng(seed)
+    m_s, p_s, t_s = [], [], []
+    for p in range(1, n_pos + 1):
+        for _ in range(per_single):
+            m_s.append(f"A{p}V")
+            t = rng.normal()
+            t_s.append(t)
+            p_s.append(t + rng.normal(0, 0.8))
+    m_d, p_d, t_d = [], [], []
+    for p in range(1, n_pos):
+        eff_t = rng.normal()
+        eff_p = 0.5 * eff_t + rng.normal()
+        for _ in range(per_double):
+            m_d.append(f"A{p}V:G{p + 1}L")
+            t_d.append(eff_t)
+            p_d.append(eff_p)
+    return ((np.array(p_s), np.array(t_s), m_s), (np.array(p_d), np.array(t_d), m_d))
+
+
+def _rho(p, t):
+    return evaluate.spearman(p, t)
+
+
+def test_gap_bootstrap_cluster_interval_is_wider_than_the_variant_interval():
+    from variant_effect.resampling import gap_bootstrap
+    (ps, ts, ms), (pd_, td, md) = _two_strata_on_shared_positions()
+    pt_v, lo_v, hi_v, sd_v = gap_bootstrap(_rho, (ps, ts), (pd_, td),
+                                           n_boot=200, seed=1)
+    pt_c, lo_c, hi_c, sd_c = gap_bootstrap(_rho, (ps, ts), (pd_, td), ms, md,
+                                           n_boot=200, seed=1)
+    assert pt_v == pytest.approx(pt_c)
+    assert sd_c > 1.5 * sd_v
+
+
+def test_gap_bootstrap_demands_mutants_for_both_strata_or_neither():
+    from variant_effect.resampling import gap_bootstrap
+    (ps, ts, ms), (pd_, td, md) = _two_strata_on_shared_positions()
+    with pytest.raises(ValueError):
+        gap_bootstrap(_rho, (ps, ts), (pd_, td), ms, None, n_boot=60)
+
+
+def test_gap_bootstrap_refuses_tiny_strata():
+    from variant_effect.resampling import gap_bootstrap
+    x = np.arange(10.0)
+    out = gap_bootstrap(_rho, (x, x), (x, x), n_boot=60)
+    assert all(np.isnan(v) for v in out)
+
+
+def test_gap_bootstrap_joint_mode_takes_both_strata():
+    from variant_effect.resampling import gap_bootstrap
+    (ps, ts, ms), (pd_, td, md) = _two_strata_on_shared_positions(seed=3)
+    seen = []
+
+    def joint(s, d):
+        seen.append((len(s[0]), len(d[0])))
+        return _rho(*s) - _rho(*d)
+
+    point, lo, hi, sd = gap_bootstrap(joint, (ps, ts), (pd_, td), ms, md,
+                                      n_boot=60, joint=True)
+    assert np.isfinite(point) and lo <= hi
+    assert len(seen) > 50
