@@ -417,7 +417,81 @@ variants of the same pairs, with a paired test. No median is compared to a
 mean anywhere in it.
 
 <!-- BEGIN GENERATED: latent_truth -->
+| pooled-truth measurement | value |
+|---|---|
+| replicate pairs with >= 1000 shared variants | 32 |
+| proteins covered | 20 |
+| shared variant measurements | 142841 |
+| median truth-vs-truth top-10 recall (the old 0.350 definition) | 0.350 |
+| mean truth-vs-truth top-10 recall, same pairs | 0.408 |
+| median top-10 recall, assay against the pooled target | 1.000 |
+| median top-10 recall, model against one assay | 0.250 |
+| median top-10 recall, model against the pooled target | 0.250 |
+| median paired gain, model vs pooled minus model vs single | +0.025 |
+| pairs where pooling helped the model | 16 of 32 |
+| paired Wilcoxon p, top-10 recall | 0.0630 |
+| median Spearman, model against one assay | 0.478 |
+| median Spearman, model against the pooled target | 0.522 |
+| median paired gain, Spearman | +0.045 |
+| paired Wilcoxon p, Spearman | < 0.0001 |
+| median split-half reliability of a pair | 0.611 |
+| pairs at or below 0.3 reliability, pooling uninformative | 4 of 32 |
+| same-quantity pairs only: n | 18 |
+| same-quantity median paired gain, top-10 recall | +0.025 |
+| same-quantity paired Wilcoxon p | 0.3380 |
+| reliable pairs only (split-half > 0.3): n | 28 |
+| reliable-pair median paired gain, top-10 recall | +0.025 |
+| model mean top-10 recall, all 217 assays | 0.323 |
+| model mean top-10 recall, the 46 assays that have a replicate | 0.326 |
+
+A paired control: an assay scored against the pooled target gains +0.475 over truth-against-truth on the same pairs (Wilcoxon p = < 0.0001). That gain is the attenuation 0.350 was made of.
 <!-- END GENERATED: latent_truth -->
+
+The attenuation the audit predicted is real and measured: scored against
+the pooled target instead of against one assay, an assay gains a median of
++0.475 top-10 recall on the same pairs (Wilcoxon p < 0.0001); it is not an
+independent predictor, it is half the target, so read that as a measurement of
+how much attenuation 0.350 contained and not as a benchmark a model could
+match. That gain is
+what 0.350 was made of, and it is why 0.350 cannot be an upper bound -- the
+same "predictor" beats it by nearly half a top-10 as soon as the target stops
+being one noisy assay.
+
+What the model does with the better target is narrower. Its top-10 recall
+against the pool is a median of 0.250, the same as against a single assay: a
+median paired gain of +0.025, 16 pairs better and 9 worse, paired Wilcoxon
+p = 0.063. On rank correlation, which is not bounded by eleven discrete
+values, the pooled target raises the model's Spearman in 32 of 32 pairs, a
+median of +0.045 (p < 0.0001). Two metrics, two readings: against a less
+noisy truth the model ranks consistently better, and its ten picks do not
+consistently land better.
+
+And on the same 32 pairs the old comparison itself does not survive. Truth
+against truth is a mean of 0.408 there; the model against a single assay is
+0.292. The paired gap is 0.116 in the model's disfavour, but the Wilcoxon
+test over pairs puts it at p = 0.155, and the model is below the truth-vs-truth
+value on 17 of 32 pairs -- not the clean "at the ceiling" story, and not a
+significant shortfall either. On 32 pairs with a ten-variant metric, the
+honest statement is that this data cannot separate the model from
+cross-assay agreement. What it can do is show that the cross-assay number was
+never an upper bound, which the +0.475 attenuation control above does
+directly.
+
+One caution that the per-pair structure forces. The Spearman gain is
+*anti*-correlated with split-half reliability across pairs (Spearman -0.84,
+p < 0.0001): the pairs that gain most are the ones whose two assays agree
+least, where averaging two measurements mostly averages two disagreements. So
+the rank gain is largest exactly where the pooled target is least like a
+latent truth, which is a reason to read the 32-of-32 result as evidence about
+attenuation rather than as evidence that a better target would help a working
+predictor by that much.
+
+The recall gain does *not* show that pattern: against reliability it is
+Spearman -0.07, p = 0.71. The ten-pick metric gains the same +0.025 median
+whether the pair is reliable or not, on 4 pairs or on 32, so there is no
+subgroup of this data in which the model's top ten picks get meaningfully
+better. That is the honest negative: on the metric the README leads with, a
+better target barely moves the model.
 
 The reason is visible in the numbers. Per-measurement error, standardised so
 two assays on different scales are comparable, has a median of 0.592 in
@@ -445,20 +519,21 @@ The same-quantity row of the table is the check on that, and the low-
 reliability row is the check on pairs whose two measurements barely agree at
 all, where pooling averages two disagreements and is not informative.
 
-One asymmetry, stated because it limits what the table can say: assay A is not
-an independent predictor of a target it is half of, so "assay against the
-pooled target" is a diagnostic of how much attenuation 0.350 contained, not a
-benchmark. The model score is independent of both assays, which is why the
-model rows are the ones that answer the question.
+The model score is independent of both assays, which is why the model rows are
+the ones that answer the question rather than the 1.000 in the assay row.
 
 So what is the ceiling? There is no measured upper bound here, and the data
 cannot supply one: an upper bound needs the latent truth, and the latent truth
-is what a noisy assay fails to give. What the numbers support is narrower and
-still useful. Inside one assay's top decile the measurement error is larger
-than the entire spread of the decile, which is why the decile *internal*
-ordering is not resolvable by anything - that part of the old argument stands.
-But "the model has no headroom" does not follow from it, and the pooled-target
-comparison is where that shows.
+is what a noisy assay fails to give. 0.350 is the agreement between two noise
+sources, and the audit's objection to calling it a ceiling is correct --
+against a lower-noise target the same assay scores higher, so nothing about
+0.350 constrains what a predictor could reach. What survives from the old
+argument is narrower and it does survive: inside one assay's top decile the
+measurement error is larger than the entire spread of the decile (0.592
+against 0.294, above), which is why the decile's *internal* ordering is not
+resolvable by anything. That is a statement about the resolvability of a
+subset, not about the model's headroom, and the earlier text ran the two
+together.
 
 The heterogeneity candidate does not survive. If the model did badly on
 assays whose top decile is a plateau, decile shape would predict its recall

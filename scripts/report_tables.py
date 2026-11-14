@@ -471,6 +471,13 @@ def latent_truth_table():
             return "n/a"
         return spec.format(x)
 
+    def pv(x):
+        """A p of 4e-10 must not print as 0.0000: 'p = 0' reads as a failure
+        of the test, not an extreme result."""
+        if x is None or not np.isfinite(x):
+            return "n/a"
+        return "< 0.0001" if x < 1e-4 else f"{x:.4f}"
+
     w = allp.get("wilcoxon_model_pooled_minus_single") or {}
     w_r = allp.get("wilcoxon_spearman_pooled_minus_single") or {}
     w_t = allp.get("wilcoxon_assay_to_pooled_minus_truth_vs_truth") or {}
@@ -494,13 +501,13 @@ def latent_truth_table():
          f(w.get("median_diff"))),
         ("pairs where pooling helped the model",
          f"{w.get('n_pairs_pooled_better', 0)} of {allp['n_pairs']}"),
-        ("paired Wilcoxon p, top-10 recall", f(w.get("p"), "{:.4f}")),
+        ("paired Wilcoxon p, top-10 recall", pv(w.get("p"))),
         ("median Spearman, model against one assay",
          f(allp["median_spearman_model_to_single"], "{:.3f}")),
         ("median Spearman, model against the pooled target",
          f(allp["median_spearman_model_to_pooled"], "{:.3f}")),
         ("median paired gain, Spearman", f(w_r.get("median_diff"))),
-        ("paired Wilcoxon p, Spearman", f(w_r.get("p"), "{:.4f}")),
+        ("paired Wilcoxon p, Spearman", pv(w_r.get("p"))),
         ("median split-half reliability of a pair",
          f(allp["median_split_half_reliability"], "{:.3f}")),
         ("pairs at or below 0.3 reliability, pooling uninformative",
@@ -513,8 +520,8 @@ def latent_truth_table():
              f((same.get("wilcoxon_model_pooled_minus_single")
                 or {}).get("median_diff"))),
             ("same-quantity paired Wilcoxon p",
-             f((same.get("wilcoxon_model_pooled_minus_single")
-                or {}).get("p"), "{:.4f}")),
+             pv((same.get("wilcoxon_model_pooled_minus_single")
+                or {}).get("p"))),
         ]
     if rel:
         rows += [
@@ -537,7 +544,7 @@ def latent_truth_table():
         tail = ("\n\nA paired control: an assay scored against the pooled "
                 "target gains "
                 f"{f(w_t.get('median_diff'))} over truth-against-truth on the "
-                f"same pairs (Wilcoxon p = {f(w_t.get('p'), '{:.4f}')}). "
+                f"same pairs (Wilcoxon p = {pv(w_t.get('p'))}). "
                 "That gain is the attenuation 0.350 was made of.")
     return fmt_table(out) + tail
 

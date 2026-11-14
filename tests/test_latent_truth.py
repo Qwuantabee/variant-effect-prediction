@@ -66,6 +66,9 @@ def _synthetic(n_per_pair=40, pairs=12, gain=0.2, seed=0):
             "recall_a_to_pooled": single,
             "recall_model_to_single": single,
             "recall_model_to_pooled": single + gain,
+            # the per-pair gain column summarise() reads for its
+            # gain-vs-reliability diagnostic
+            "recall_gain_pooled_vs_single": gain,
             "spearman_model_to_single": 0.2 + 0.01 * i,
             "spearman_model_to_pooled": 0.2 + 0.01 * i + 0.05,
             "noise_sd_z": 0.6,
@@ -145,3 +148,81 @@ def test_cached_tables_are_keyed_by_protein_not_assay():
     # the invariant the cache relies on: fewer proteins than assays, because
     # several assays share a protein
     assert per_protein < per_assay
+
+
+def test_committed_results_are_internally_consistent():
+    """The README quotes these from summary.json, so the file has to be
+    coherent: the pairs it summarises are the threshold-passing pairs, and the
+    paired counts add up."""
+    path = ROOT / "results" / "latent_truth" / "summary.json"
+    if not path.exists():
+        pytest.skip("latent-truth run has not completed")
+    import json
+    s = json.loads(path.read_text())
+    a = s["assays"]
+    assert s["threshold_shared_variants"] == lt.MIN_SHARED
+    assert a["n_pairs"] == 32
+    assert 0 < a["n_proteins"] <= a["n_pairs"]
+    # every per-pair row is one pair of two distinct assays
+    per = pd.read_csv(ROOT / "results" / "latent_truth" / "per_pair.csv")
+    assert len(per) == a["n_pairs"]
+    assert (per["assay_a"] != per["assay_b"]).all()
+    assert (per["n_shared"] >= lt.MIN_SHARED).all()
+    assert int(per["n_shared"].sum()) == a["n_variants"]
+    w = a["wilcoxon_model_pooled_minus_single"]
+    assert w["n_pairs_pooled_better"] + w["n_pairs_single_better"] <= a["n_pairs"]
+
+
+def test_model_and_assay_columns_are_not_transposed():
+    """A transposition would make the model look like it scored 1.000 against
+    the pool. The assay row is ~1 by construction (it is half the target) and
+    the model row must not be."""
+    path = ROOT / "results" / "latent_truth" / "per_pair.csv"
+    if not path.exists():
+        pytest.skip("latent-truth run has not completed")
+    d = pd.read_csv(path)
+    assert d["recall_a_to_pooled"].median() > 0.9
+    assert d["recall_model_to_pooled"].median() < 0.6
+
+
+def test_truth_vs_truth_reproduces_the_published_ceiling():
+    """The old 0.350 has to still be 0.350 on the pairs it was computed from,
+    or the comparison in the README is between two different populations
+    again."""
+    path = ROOT / "results" / "latent_truth" / "summary.json"
+    if not path.exists():
+        pytest.skip("latent-truth run has not completed")
+    import json
+    s = json.loads(path.read_text())
+    assert s["assays"]["median_recall_truth_vs_truth"] == pytest.approx(
+        0.35, abs=0.06)
+
+
+def test_pooled_target_is_never_a_nan_target():
+    """top_k_recall silently returns NaN on a fully-NaN truth, which would make
+    a failing pair look like a missing one. Every row has a finite recall
+    against both targets."""
+    path = ROOT / "results" / "latent_truth" / "per_pair.csv"
+    if not path.exists():
+        pytest.skip("latent-truth run has not completed")
+    d = pd.read_csv(path)
+    for col in ("recall_model_to_single", "recall_model_to_pooled",
+                "recall_truth_vs_truth", "split_half_reliability"):
+        assert np.isfinite(d[col]).all(), col
+
+
+def test_gain_vs_reliability_is_reported():
+    """The gain concentrates on low-reliability pairs for Spearman and not for
+    recall, and the README says so. Both correlations have to be in the
+    summary, or the prose is uncited."""
+    path = ROOT / "results" / "latent_truth" / "summary.json"
+    if not path.exists():
+        pytest.skip("latent-truth run has not completed")
+    import json
+    s = json.loads(path.read_text())
+    g = s["assays"]["gain_vs_reliability"]
+    assert g["n_pairs"] == s["assays"]["n_pairs"]
+    assert -1.0 <= g["recall_gain_spearman"] <= 1.0
+    assert -1.0 <= g["spearman_gain_spearman"] <= 1.0
+    # the two metrics must not be the same column wearing two names
+    assert g["recall_gain_spearman"] != g["spearman_gain_spearman"]

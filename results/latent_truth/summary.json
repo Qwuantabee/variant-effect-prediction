@@ -1,0 +1,134 @@
+{
+  "threshold_shared_variants": 1000,
+  "top_frac": 0.1,
+  "k": 10,
+  "assays": {
+    "subset": "all pairs",
+    "n_pairs": 32,
+    "n_proteins": 20,
+    "n_variants": 142841,
+    "median_recall_truth_vs_truth": 0.35000000000000003,
+    "mean_recall_truth_vs_truth": 0.4078125,
+    "median_recall_model_to_single": 0.25,
+    "median_recall_model_to_pooled": 0.25,
+    "median_recall_a_to_pooled": 1.0,
+    "median_split_half_reliability": 0.6107109031934468,
+    "median_spearman_model_to_single": 0.477581149834968,
+    "median_spearman_model_to_pooled": 0.5216994008525022,
+    "median_noise_sd_z": 0.5949654177873307,
+    "n_low_reliability": 4,
+    "wilcoxon_model_pooled_minus_single": {
+      "median_diff": 0.024999999999999994,
+      "mean_diff": 0.0421875,
+      "n_pairs_pooled_better": 16,
+      "n_pairs_single_better": 9,
+      "statistic": 93.5,
+      "p": 0.06301264005787696
+    },
+    "wilcoxon_spearman_pooled_minus_single": {
+      "median_diff": 0.04502283978866525,
+      "n_pairs_pooled_better": 32,
+      "n_pairs_single_better": 0,
+      "p": 4.656612873077393e-10
+    },
+    "gain_vs_reliability": {
+      "recall_gain_spearman": -0.06917687071320765,
+      "recall_gain_p": 0.7067641077990652,
+      "spearman_gain_spearman": -0.8423753665689148,
+      "spearman_gain_p": 1.4924189144517705e-09,
+      "n_pairs": 32
+    },
+    "wilcoxon_assay_to_pooled_minus_truth_vs_truth": {
+      "median_diff": 0.47500000000000003,
+      "p": 1.162482797286623e-06
+    }
+  },
+  "same_quantity": {
+    "subset": "same-quantity pairs only",
+    "n_pairs": 18,
+    "n_proteins": 9,
+    "n_variants": 45155,
+    "median_recall_truth_vs_truth": 0.44999999999999996,
+    "mean_recall_truth_vs_truth": 0.4361111111111111,
+    "median_recall_model_to_single": 0.275,
+    "median_recall_model_to_pooled": 0.30000000000000004,
+    "median_recall_a_to_pooled": 1.0,
+    "median_split_half_reliability": 0.643542989886702,
+    "median_spearman_model_to_single": 0.5131908588937277,
+    "median_spearman_model_to_pooled": 0.564869280166198,
+    "median_noise_sd_z": 0.5487957019660072,
+    "n_low_reliability": 0,
+    "wilcoxon_model_pooled_minus_single": {
+      "median_diff": 0.024999999999999994,
+      "mean_diff": 0.03333333333333334,
+      "n_pairs_pooled_better": 9,
+      "n_pairs_single_better": 7,
+      "statistic": 49.5,
+      "p": 0.3380354107405429
+    },
+    "wilcoxon_spearman_pooled_minus_single": {
+      "median_diff": 0.03735829552813308,
+      "n_pairs_pooled_better": 18,
+      "n_pairs_single_better": 0,
+      "p": 7.62939453125e-06
+    },
+    "gain_vs_reliability": {
+      "recall_gain_spearman": -0.0900625461149419,
+      "recall_gain_p": 0.7222937876587368,
+      "spearman_gain_spearman": -0.7812177502579979,
+      "spearman_gain_p": 0.00012936386013196713,
+      "n_pairs": 18
+    },
+    "wilcoxon_assay_to_pooled_minus_truth_vs_truth": {
+      "median_diff": 0.44999999999999996,
+      "p": 0.00029133231050973
+    }
+  },
+  "reliable_only": {
+    "subset": "pairs with split-half reliability > 0.3",
+    "n_pairs": 28,
+    "n_proteins": 16,
+    "n_variants": 119098,
+    "median_recall_truth_vs_truth": 0.425,
+    "mean_recall_truth_vs_truth": 0.44464285714285706,
+    "median_recall_model_to_single": 0.25,
+    "median_recall_model_to_pooled": 0.25,
+    "median_recall_a_to_pooled": 1.0,
+    "median_split_half_reliability": 0.6406794192543046,
+    "median_spearman_model_to_single": 0.49390033322301374,
+    "median_spearman_model_to_pooled": 0.5324783909283393,
+    "median_noise_sd_z": 0.5871831597180004,
+    "n_low_reliability": 0,
+    "wilcoxon_model_pooled_minus_single": {
+      "median_diff": 0.024999999999999994,
+      "mean_diff": 0.04642857142857144,
+      "n_pairs_pooled_better": 14,
+      "n_pairs_single_better": 7,
+      "statistic": 63.5,
+      "p": 0.07033887016060254
+    },
+    "wilcoxon_spearman_pooled_minus_single": {
+      "median_diff": 0.03737437223855927,
+      "n_pairs_pooled_better": 28,
+      "n_pairs_single_better": 0,
+      "p": 7.450580596923828e-09
+    },
+    "gain_vs_reliability": {
+      "recall_gain_spearman": -0.16428029344200665,
+      "recall_gain_p": 0.40351832948995897,
+      "spearman_gain_spearman": -0.7712096332785988,
+      "spearman_gain_p": 1.5605436010577554e-06,
+      "n_pairs": 28
+    },
+    "wilcoxon_assay_to_pooled_minus_truth_vs_truth": {
+      "median_diff": 0.44999999999999996,
+      "p": 5.549721616354226e-06
+    }
+  },
+  "benchmark_reference": {
+    "n_all_assays": 217,
+    "mean_recall_all_assays": 0.3225806451612903,
+    "n_paired_assays": 46,
+    "mean_recall_paired_assays": 0.3260869565217391
+  }
+}

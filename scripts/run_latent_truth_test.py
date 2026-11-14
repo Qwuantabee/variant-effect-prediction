@@ -388,6 +388,25 @@ def summarise(df, subset_name):
             "n_pairs_single_better": int((diff_r < 0).sum()),
             "p": float(w.pvalue),
         }
+    # does the gain concentrate where the two assays agree least? if it does,
+    # the pooled target is least like a latent truth exactly where it helps
+    # the model most, which limits how the gain may be read
+    m = d[["split_half_reliability", "recall_gain_pooled_vs_single",
+           "spearman_model_to_pooled", "spearman_model_to_single"]].dropna()
+    if len(m) >= 8:
+        r_gain, p_gain = stats.spearmanr(
+            m["split_half_reliability"], m["recall_gain_pooled_vs_single"])
+        r_spr, p_spr = stats.spearmanr(
+            m["split_half_reliability"],
+            m["spearman_model_to_pooled"] - m["spearman_model_to_single"])
+        out["gain_vs_reliability"] = {
+            "recall_gain_spearman": float(r_gain),
+            "recall_gain_p": float(p_gain),
+            "spearman_gain_spearman": float(r_spr),
+            "spearman_gain_p": float(p_spr),
+            "n_pairs": int(len(m)),
+        }
+
     # truth-vs-truth also rises against the pool: the ceiling itself was
     # attenuated, which is the audit's point stated as a measurement
     diff_t = (d["recall_a_to_pooled"]
