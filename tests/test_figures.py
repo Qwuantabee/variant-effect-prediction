@@ -216,3 +216,60 @@ def test_each_findings_figure_writes_a_readable_png(name, tmp_path, monkeypatch)
     h, w = img.shape[:2]
     assert w >= 1200 and h >= 650                  # 8 x 4.3 in or more at 150 dpi
     assert float(img[..., :3].std()) > 0.05        # not a blank canvas
+
+
+# ---- the README says what the figures say ------------------------------------
+
+README = ROOT / "README.md"
+FINDINGS_PNGS = ("pooled_target_rank_gain.png", "recall_vs_rank_significance.png",
+                 "model_vs_truth_vs_truth.png", "rask_resampling_unit.png",
+                 "range_matching_gap.png", "family_test_unit.png",
+                 "his7_residual_vs_variance.png", "esm2_scaling_by_split.png",
+                 "at_a_glance.png")
+
+
+def _glance():
+    text = README.read_text()
+    i = text.index("## At a glance")
+    j = text.index("\n## ", i + 5)
+    return text[i:j]
+
+
+def test_readme_embeds_every_findings_figure_and_links_the_results_page():
+    require(README.exists(), "README.md missing")
+    text = README.read_text()
+    for name in FINDINGS_PNGS:
+        assert (mf.FIG / name).exists(), f"figures/{name} is not committed"
+        assert f"figures/{name}" in text, f"README does not embed figures/{name}"
+    assert "RESULTS.md" in text
+    # the relocated tables live on the page, not in two places that can disagree
+    for name in ("topk_ceiling", "latent_truth", "sim_controls", "epistasis",
+                 "family_viral_gap", "scaling_paired", "scaling_subgroups"):
+        assert f"<!-- BEGIN GENERATED: {name} -->" not in text
+
+
+def test_readme_at_a_glance_numbers_come_from_the_artefacts():
+    """The four-bullet summary at the top is typed prose, so pin it: every
+    number in it is recomputed here from the committed results files."""
+    _have(mf.LT / "per_pair.csv", mf.LT / "summary.json", mf.REP / "gaps.csv",
+          mf.SUPERSEDED_GAPS)
+    g = _glance().replace("\u2212", "-")
+    per, prot, summ = mf.rank_gain_data()
+    n_pairs, n_prot = len(per), len(prot)
+    assert f"{int((per['gain'] > 0).sum())} of {n_pairs}" in g
+    assert f"{int((prot > 0).sum())} of {n_prot}" in g
+    assert f"{per['gain'].median():+.3f}" in g and f"{prot.median():+.3f}" in g
+    rows = {(r["level"]): r for r in mf.pvalue_data() if r["primary_subset"]}
+    # the README's convention: four decimals below 0.1, three above
+    fmt = lambda ps: " / ".join(f"{p:.4f}" if p < 0.1 else f"{p:.3f}" for p in ps)
+    assert fmt(rows["pair"]["recall"]) in g and fmt(rows["protein"]["recall"]) in g
+    allp = [p for r in mf.pvalue_data() for p in r["recall"]]
+    assert f"{min(allp):.3f}" in g
+    c = mf.ceiling_data()["single"]
+    assert f"{c['below']} of 32" in g and f"on {c['above']} above" in g
+    u = mf.resampling_unit_data()["spearman"]
+    s = lambda x: f"{x:+.3f}"
+    assert s(u["point"]) in g
+    assert f"[{s(u['variant'][0])}, {s(u['variant'][1])}]" in g
+    assert f"[{s(u['position'][0])}, {s(u['position'][1])}]" in g
+    assert "20,124" in g and "187" in g
