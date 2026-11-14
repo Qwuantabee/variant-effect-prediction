@@ -183,14 +183,30 @@ def test_only_his7_residual_exceeds_the_total():
     assert round(a["nonadditive_residual_var_share"].mean(), 3) == 0.586
 
 
+# ---- h) scaling by split ---------------------------------------------------
+
+def test_scaling_split_matches_the_published_columns():
+    _have(mf.RESULTS / "esm2_scaling" / "subgroups.csv")
+    d = mf.scaling_split_data()
+    assert len(d) == 10 and d.index[-1] == "Taxa_Virus"   # sorted by the 15B change
+    assert round(d.loc["Taxa_Virus", "d_3B"], 3) == 0.033
+    assert round(d.loc["Taxa_Virus", "d_15B"], 3) == 0.072
+    worse = ["Function_Stability", "Function_Binding", "Taxa_Human"]
+    better = ["Taxa_Virus", "Function_OrganismalFitness"]
+    assert (d.loc[worse, ["d_3B", "d_15B"]] < 0).all().all()
+    assert (d.loc[better, ["d_3B", "d_15B"]] > 0).all().all()
+
+
 # ---- every figure draws -----------------------------------------------------
 
 @pytest.mark.parametrize("name", sorted(mf.FINDINGS))
 def test_each_findings_figure_writes_a_readable_png(name, tmp_path, monkeypatch):
     """Run each figure function end to end into a temp directory: a PNG at
-    150 dpi, wide enough to read, not a blank canvas."""
+    150 dpi, wide enough to read (the single-panel figure is 8.6 in wide, the
+    multi-panel ones 11 in), not a blank canvas."""
     _have(mf.LT / "per_pair.csv", mf.REP / "gaps.csv", mf.SUPERSEDED_GAPS,
-          mf.EPI / "paired_gaps.csv", mf.FAM / "family_separation.csv")
+          mf.EPI / "paired_gaps.csv", mf.FAM / "family_separation.csv",
+          mf.RESULTS / "esm2_scaling" / "subgroups.csv")
     monkeypatch.setattr(mf, "FIG", tmp_path)
     mf.FINDINGS[name]()
     pngs = list(tmp_path.glob("*.png"))
@@ -198,5 +214,5 @@ def test_each_findings_figure_writes_a_readable_png(name, tmp_path, monkeypatch)
     import matplotlib.image as mpimg
     img = mpimg.imread(pngs[0])
     h, w = img.shape[:2]
-    assert w >= 1500 and h >= 650                  # 11 x 4.6 in or more at 150 dpi
+    assert w >= 1200 and h >= 650                  # 8 x 4.3 in or more at 150 dpi
     assert float(img[..., :3].std()) > 0.05        # not a blank canvas

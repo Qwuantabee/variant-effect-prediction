@@ -1056,6 +1056,66 @@ def fig_his7_residual():
     _save(fig, "his7_residual_vs_variance.png")
 
 
+# ---- h) bigger ESM-2 gains and loses by what the assay measures ---------------
+
+SCALING_SPLITS = ["Function_Stability", "High_MSA_depth", "Function_Binding",
+                  "Function_Activity", "Taxa_Human", "Taxa_Prokaryote",
+                  "Function_Expression", "Medium_MSA_depth",
+                  "Function_OrganismalFitness", "Taxa_Virus"]   # as in report_tables
+
+
+def scaling_split_data():
+    """Change in mean Spearman from ESM-2 650M to 3B and to 15B, per split."""
+    sub = pd.read_csv(_need(RESULTS / "esm2_scaling" / "subgroups.csv"), index_col=0)
+    sub = sub.loc[SCALING_SPLITS]
+    _agree([
+        (bool(np.allclose(sub["3B"] - sub["650M"], sub["d_3B"], atol=1.1e-3)),
+         "3B - 650M against the stored difference"),
+        (bool(np.allclose(sub["15B"] - sub["650M"], sub["d_15B"], atol=1.1e-3)),
+         "15B - 650M against the stored difference"),
+    ], "h (scaling by split)", "results/esm2_scaling/subgroups.csv")
+    return sub.sort_values("d_15B")
+
+
+def fig_scaling_split():
+    """h) The 3B and 15B checkpoints trade stability for host-context assays."""
+    d = scaling_split_data()
+    n = len(d)
+    y = np.arange(n)
+    fig, ax = plt.subplots(figsize=(8.6, 4.9))
+    h = 0.36
+    ax.axvline(0, color="grey", lw=1.2, zorder=1)
+    ax.barh(y + h / 2, d["d_3B"], height=h, color="C0", edgecolor="black",
+            linewidth=0.5, zorder=3, label="ESM-2 3B minus 650M")
+    ax.barh(y - h / 2, d["d_15B"], height=h, color="C3", edgecolor="black",
+            linewidth=0.5, zorder=3, label="ESM-2 15B minus 650M")
+    for yi, a, b in zip(y, d["d_3B"], d["d_15B"]):
+        ax.text(a + (0.002 if a >= 0 else -0.002), yi + h / 2, _signed(a),
+                va="center", ha="left" if a >= 0 else "right", fontsize=7.5)
+        ax.text(b + (0.002 if b >= 0 else -0.002), yi - h / 2, _signed(b),
+                va="center", ha="left" if b >= 0 else "right", fontsize=7.5)
+    ax.set_yticks(y)
+    ax.set_yticklabels([s.replace("_", " ").replace("Function ", "assay measures ")
+                        .replace("Taxa ", "taxon: ") for s in d.index], fontsize=8.5)
+    ax.tick_params(axis="y", length=0)
+    lim = float(max(abs(d[["d_3B", "d_15B"]].to_numpy()).max(), 0.05)) + 0.02
+    ax.set_xlim(-0.075, lim)
+    ax.grid(axis="x", color="0.93", lw=0.5)
+    ax.set_axisbelow(True)
+    ax.set_xlabel("change in mean Spearman relative to the 650M checkpoint\n"
+                  "\u2190 bigger model worse        bigger model better \u2192")
+    ax.legend(loc="lower right", fontsize=8, framealpha=0.95)
+    fig.subplots_adjust(left=0.27, right=0.97, top=0.84, bottom=0.2)
+    fig.suptitle("Bigger ESM-2 checkpoints lose to 650M on stability, binding and human "
+                 "proteins\nand gain on viral and organismal-fitness assays", fontsize=11,
+                 x=0.5, y=0.985)
+    _source_note(fig, "source: results/esm2_scaling/subgroups.csv  |  published ProteinGym "
+                      "subgroup columns, 217 assays, two-stage aggregation\n"
+                      "10 of the 17 published splits (those in RESULTS.md); all 17 are in "
+                      "the csv", y=0.012)
+    _save(fig, "esm2_scaling_by_split.png")
+
+
 # ---- at a glance: the four panels that carry the conclusion -------------------
 
 def fig_at_a_glance():
@@ -1134,6 +1194,7 @@ FINDINGS = {
     "range_matching": fig_range_matching,
     "family_test_unit": fig_family_test_unit,
     "his7_residual": fig_his7_residual,
+    "scaling_split": fig_scaling_split,
     "at_a_glance": fig_at_a_glance,
 }
 
