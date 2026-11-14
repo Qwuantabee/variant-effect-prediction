@@ -274,6 +274,52 @@ def scope_audit_table():
     return fmt_table(out, floatfmt="{:.3f}")
 
 
+def family_gap_table():
+    """Viral gap by model family, from the published per-assay table."""
+    path = ROOT / "results" / "families" / "family_viral_gap.csv"
+    if not path.exists():
+        return None
+    d = pd.read_csv(path)
+    out = pd.DataFrame({
+        "family": d["family"],
+        "checkpoints": d["methods"].astype(int),
+        "reads an alignment": d["reads_alignment_of_the_family"].map(
+            {True: "yes", False: "no"}),
+        "virus": d["virus"],
+        "non-viral": d["nonviral"],
+        "gap": d["gap"],
+    })
+    return fmt_table(out, floatfmt="{:+.3f}")
+
+
+def family_separation_text():
+    path = ROOT / "results" / "families" / "family_separation.csv"
+    if not path.exists():
+        return None
+    d = pd.read_csv(path)
+    if d.empty or not np.isfinite(d["p_no_alignment_worse"].iloc[0]):
+        return None
+    r = d.iloc[0]
+    return (
+        f"Across the {int(r['n_no_alignment'])} checkpoints in families that do "
+        f"not read an alignment, the median viral gap is "
+        f"{r['median_gap_no_alignment']:+.3f}; across the "
+        f"{int(r['n_alignment'])} that do, it is "
+        f"{r['median_gap_alignment']:+.3f} "
+        f"(Mann-Whitney one-sided p={r['p_no_alignment_worse']:.2g})."
+    )
+
+
+def quoted_vs_published_text():
+    path = ROOT / "results" / "families" / "quoted_vs_published.csv"
+    if not path.exists():
+        return None
+    d = pd.read_csv(path)
+    parts = [f"{r['model']} {r['published_headline']:.3f}" for _, r in d.iterrows()]
+    return "ProteinGym headlines, read from the published summary table: " + \
+        ", ".join(parts) + "."
+
+
 TABLES = {
     "full_benchmark": full_benchmark_table,
     "full_benchmark_coverage": full_benchmark_coverage,
@@ -285,6 +331,9 @@ TABLES = {
     "structure_burial": burial_table,
     "structure_heldout": structure_heldout_text,
     "scope_audit": scope_audit_table,
+    "family_viral_gap": family_gap_table,
+    "family_separation": family_separation_text,
+    "quoted_headlines": quoted_vs_published_text,
 }
 
 

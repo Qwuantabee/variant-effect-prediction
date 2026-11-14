@@ -1,0 +1,6 @@
+model,quoted,published_headline,difference
+ESM2 (650M),0.414,0.414,0.0
+ESM-C (300M),0.406,0.406,0.0
+ESM-C (600M),0.405,0.405,0.0
+AIDO Protein-RAG (16B),0.518,0.518,0.0
+Protriever,0.479,0.479,0.0

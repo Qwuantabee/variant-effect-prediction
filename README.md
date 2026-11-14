@@ -443,6 +443,92 @@ Two environment notes, both of which cost time to work out:
 - `pip_system_certs` breaks `huggingface_hub` with a `RecursionError` deep in
   `ssl.py`. If downloads fail that way, uninstall it from the environment.
 
+## The viral split is not an ESM-2 artefact
+
+The section above explains the viral failure as an objective mismatch: the
+model learns conservation from UniRef, and viral proteins vary across strains
+under immune selection rather than under structural constraint. It is worth
+noting how much that explanation was resting on one model family. It makes a
+prediction beyond ESM-2 -- if the cause is reading conservation off a
+general corpus, then a different architecture trained on different data
+should fail the same way, and a method that reads an alignment of the assayed
+family should not.
+
+ProteinGym publishes per-assay Spearman for 97 methods on these same 217
+assays, so this is testable without running anything.
+`scripts/run_family_analysis.py` takes the virus mean minus the non-virus mean
+for each method and groups the result by what the method is trained to do.
+The tables below are generated from its output, so the numbers cannot drift
+from the files.
+
+<!-- BEGIN GENERATED: family_viral_gap -->
+| family | checkpoints | reads an alignment | virus | non-viral | gap |
+|---|---|---|---|---|---|
+| ESM-C (seq LM, diverse training set) | 2 | no | +0.238 | +0.466 | -0.228 |
+| ESM-2 (seq LM, UniRef) | 6 | no | +0.211 | +0.397 | -0.185 |
+| ESM-1 (seq LM, UniRef) | 3 | no | +0.272 | +0.439 | -0.167 |
+| ProtSSN (structure-aware) | 3 | no | +0.364 | +0.481 | -0.118 |
+| Progen2 (seq LM, autoregressive) | 5 | no | +0.335 | +0.393 | -0.058 |
+| VESPA (MSA + score priors) | 3 | yes | +0.424 | +0.461 | -0.037 |
+| EVE / EVmutation (MSA only) | 3 | yes | +0.420 | +0.448 | -0.029 |
+| Tranception, retrieval (MSA) | 3 | yes | +0.417 | +0.444 | -0.027 |
+| TranceptEVE (MSA + retrieval) | 3 | yes | +0.451 | +0.475 | -0.025 |
+| GEMME (MSA only) | 1 | yes | +0.466 | +0.476 | -0.009 |
+| Protein-RAG (retrieval-augmented) | 2 | yes | +0.518 | +0.521 | -0.003 |
+| Site-Independent (MSA only) | 1 | yes | +0.369 | +0.369 | +0.000 |
+| Tranception, no retrieval (MSA) | 3 | yes | +0.353 | +0.346 | +0.006 |
+| RITA (seq LM, autoregressive) | 4 | no | +0.376 | +0.355 | +0.021 |
+<!-- END GENERATED: family_viral_gap -->
+
+<!-- BEGIN GENERATED: family_separation -->
+Across the 23 checkpoints in families that do not read an alignment, the median viral gap is -0.116; across the 19 that do, it is -0.022 (Mann-Whitney one-sided p=0.00047).
+<!-- END GENERATED: family_separation -->
+
+ESM-C is the direct test the open-questions list asked for, and it fails
+harder than ESM-2 rather than differently: 0.238 on virus against 0.465
+elsewhere, a gap of −0.227 where ESM-2 650M's is −0.198. It is a different
+architecture (a newer ESM lineage with a substantially different, more diverse
+training set), offered at 300M and 600M -- one below and one at the size of
+the 650M checkpoint -- and both behave the same way (0.433 and 0.434 as
+per-assay means, 0.406 and 0.405 as headlines). Same failure, same size, same
+direction. Whatever causes this is not a property of one checkpoint.
+
+The retrieval-augmented numbers in the task list are worth reading carefully
+because the figures usually quoted for them (~0.44 for ESM-C, ~0.50 for the
+retrieval methods) are *per-assay means*, while the figures in the published
+summary table are two-stage headlines, and for these methods the two differ by
+about 0.03. Both are reported here so the comparison is unambiguous. On the
+per-assay column, AIDO Protein-RAG (16B) averages 0.542 and Protriever 0.499;
+as headlines they are 0.518 and 0.479. What matters for the viral question is
+neither level: it is that AIDO's viral mean (0.521) is barely below its
+non-viral mean (0.545), a gap of −0.024, and Protriever is flatter still at
++0.018 over the 200 assays where it is reported. So the headline is not the
+interesting part: the interesting part is that both retrieval methods have
+nearly closed a gap that costs ESM-2 650M 0.198 of its 0.466 -- about 43% of
+its correlation on non-viral assays. That is the same conclusion the
+alignment comparison reached from the other direction, on a different class
+of method, and it is why the practical recommendation for a viral target in
+the section above is not "use a bigger language model".
+
+The one row that does not fit: RITA, an autoregressive sequence model, has a
+*slightly positive* gap (+0.021). It is also the lowest-scoring family on
+non-viral assays here, so its flatness is more likely to be a ceiling effect
+than a genuine viral strength -- a model that averages 0.355 where the other
+sequence-only families average 0.39 to 0.47 has less to lose. The pattern is
+reported with that row in it rather than trimmed, because trimming a single
+inconvenient family is how a trend becomes a story.
+
+<!-- BEGIN GENERATED: quoted_headlines -->
+ProteinGym headlines, read from the published summary table: ESM2 (650M) 0.414, ESM-C (300M) 0.406, ESM-C (600M) 0.405, AIDO Protein-RAG (16B) 0.518, Protriever 0.479.
+<!-- END GENERATED: quoted_headlines -->
+
+Those are ProteinGym's two-stage headlines, which are the numbers a reader
+will find in the paper. The plain per-assay means are higher -- 0.438 for
+ESM-2 650M -- and quoting one against the other is the mistake the
+aggregation section warns about, so the comparison table above uses each
+method's published headline only for the values it lists as headlines, and
+the gap table uses the per-assay column for every method identically.
+
 ## What this work does not cover, and why
 
 Two things are out of scope, and both are declared rather than left as an
@@ -554,11 +640,12 @@ What is still open:
   declared out of scope in "What this work does not cover", with the reason
   and a measurement of what is actually on disk
 - ~~Only one model family~~ — the viral split is a property of the training
-  objective, not of ESM-2: ESM-C scores 0.238 on virus against 0.465
-  elsewhere, the same -0.23 gap on a different architecture and different
-  training data. Every sequence-only method in the published table shows the
-  gap; the methods that do not are the ones that read an alignment of the
-  family. See "The viral split is not an ESM-2 artefact"
+  objective, not of ESM-2: ESM-C scores 0.238 on virus against 0.466
+  elsewhere, a −0.228 gap, slightly *larger* than ESM-2 650M's −0.198, on a
+  different architecture and training set. Families that read an alignment
+  have a median gap of −0.022 against −0.116 for those that do not
+  (p=0.00047 over 42 checkpoints). See "The viral split is not an ESM-2
+  artefact"
 
 ## Note on how this was built
 
