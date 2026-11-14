@@ -69,6 +69,71 @@ Run:
     python scripts/run_epistasis_replicated.py
     python scripts/run_epistasis_replicated.py --pair rask
     python scripts/run_epistasis_replicated.py --pooled-only   # skip the model
+
+
+Reading the results (moved from the README)
+--------------------------------------------
+RASK_HUMAN: no degradation is distinguishable, and the controlled gap is near
+zero. Against the rank pool the model ranks the doubles better than the singles
+in point estimate (Spearman +0.521 against +0.449; top-decile recall 0.313
+against 0.183). The singles-minus-doubles Spearman gap is -0.073 with a
+position-bootstrap interval of [-0.180, +0.039], which includes zero. The earlier
+README quoted -0.088 [-0.123, -0.057] and read the interval as excluding zero on
+the side opposite the hypothesis. The -0.088 is the z-pool point estimate and
+reproduces; the interval came from resampling the 20,124 doubles as independent
+variants, and by position the same gap is [-0.192, +0.017]. Against each assay
+alone the gap has the same sign and an interval that includes zero (abundance
+-0.059 [-0.216, +0.105]; binding -0.073 [-0.161, +0.021]). The doubles' measured
+fitness is spread over a wider range than the singles', and a rank correlation
+over a wider spread is mechanically larger; trimmed to the fitness window both
+strata share, the gap is +0.031 [-0.082, +0.139] on the rank pool (z-pool +0.012
+[-0.101, +0.119]), still indistinguishable from zero and with the opposite sign.
+So part of the -0.088 is a statement about the spread of the doubles' truth and
+not about the model. The top-decile recall gap is -0.130 [-0.240, -0.007] on the
+rank pool (-0.125 on the z-pool, -0.140 against binding alone with intervals that
+also end just below zero, and -0.048 [-0.142, +0.052] against abundance alone):
+doubles better, with an interval that only barely excludes zero on three of four
+targets and no range-matching applied to that metric. The data are consistent
+with the independent-site score paying no rank-accuracy cost on RASK doubles;
+they are too imprecise to exclude a modest advantage or deficit, and they do not
+support degradation.
+
+SPG1_STRSG: not interpretable. The shared variants sit on 4 positions. The gap
+is +0.137 [-0.075, +0.593] on the rank pool, and +0.226 [+0.091, +0.465]
+range-matched, which is the direction of degradation; but a position bootstrap
+over four clusters is not an interval for anything (the verdict code returns
+insufficient_clusters below 20 positions), and a variant-level bootstrap that
+treats 2,091 doubles on four positions as independent would be worse. The
+range-matched interval excluding zero does not change that. The top-decile
+recall is 0.250 on the 76 singles (a decile of 76 is k = 8 variants, so 2 of 8)
+against 0.316 on the doubles: a gap of -0.066 [-0.369, +0.520]. SPG1 neither
+supports nor contradicts RASK.
+
+What the run can and cannot say:
+* The RASK target is a different-quantity pool. The two Weng assays agree at
+  Spearman 0.386 over all shared variants (Pearson of the z-scores 0.351): the
+  abundance and DARPin-binding readouts disagree about a large share of the
+  ordering because they measure different things, not only because of noise, so
+  the Spearman-Brown correction is not applied. The z-pool correlates 0.822 with
+  each assay overall, and 0.852 / 0.800 (abundance / binding) within the singles
+  against 0.814 / 0.814 within the doubles, so the pool's composition differs a
+  little by stratum.
+* Assay agreement is higher on the singles than on the doubles (Spearman 0.478
+  against 0.348), which under attenuation would favour the singles. They do not
+  rank better; this is a measurement, not a proof that attenuation cannot matter.
+* SPG1 is a close-to-agreeing pair on a narrow library: 4 positions, 76 singles.
+  A target on which the two assays agree at Spearman 0.901 within the doubles
+  cannot settle the question on that library, and does not overturn RASK.
+* This tests one model class on two proteins. Nothing here generalises to
+  triples, to structurally coupled sites chosen deliberately, or to proteins
+  whose doubles library is wide.
+
+One hypothesis, not tested here, that would reconcile both epistasis scripts: the
+top of a DMS assay rewards detecting damage, a double mutant accumulates two
+damages, and a sum of two negative log-odds is a good damage detector. The
+model-free residual (run_epistasis_test.py) shows non-additivity exists in the
+data (an upper bound on it), and the independent-site score does not demonstrably
+lose accuracy to it.
 """
 
 import argparse

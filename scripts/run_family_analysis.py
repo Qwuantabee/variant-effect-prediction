@@ -33,6 +33,48 @@ not the comparison between methods.
 
 Run:
     python scripts/run_family_analysis.py
+
+
+Reading the family table (moved from the README)
+-------------------------------------------------
+ESM-C is the direct test the open-questions list asked for, and it fails harder
+than ESM-2 rather than differently: 0.238 on virus against 0.465 elsewhere, a gap
+of -0.227 where ESM-2 650M's is -0.198. It is a different architecture (a newer
+ESM lineage with a substantially different, more diverse training set), offered
+at 300M and 600M -- one below and one at the size of the 650M checkpoint -- and
+both behave the same way (0.433 and 0.434 as per-assay means, 0.406 and 0.405 as
+headlines). Same failure, same size, same direction.
+
+The retrieval-augmented numbers: the figures usually quoted for them (~0.44 for
+ESM-C, ~0.50 for the retrieval methods) are per-assay means, while the figures in
+the published summary table are two-stage headlines, and for these methods the two
+differ by about 0.03. Both are reported. On the per-assay column, AIDO Protein-RAG
+(16B) averages 0.542 and Protriever 0.499; as headlines they are 0.518 and 0.479.
+What matters for the viral question is neither level: AIDO's viral mean (0.521) is
+barely below its non-viral mean (0.545), a gap of -0.024, and Protriever is
+flatter still at +0.018 over the 200 assays where it is reported. Both retrieval
+methods have nearly closed a gap that costs ESM-2 650M 0.198 of its 0.414
+non-viral correlation, about 48% of it. (An earlier version of the README divided
+by 0.466, which is ESM-C's non-viral mean and not ESM-2's; the family mean is
+0.397 and 650M's own headline is 0.414, which puts the same gap at 47.8% or 49.9%
+depending on which you take. The conclusion does not depend on the denominator.)
+
+The one row that does not fit: RITA, an autoregressive sequence model, has a
+slightly positive gap (+0.021). It is also the lowest-scoring sequence-only
+family on non-viral assays here (0.355, against 0.393 to 0.481 for the others; the
+lowest figure in the whole table, 0.346, belongs to Tranception without retrieval,
+which reads an alignment and so is not the relevant comparison), so its flatness
+is more likely a ceiling effect than a genuine viral strength -- a model that
+averages 0.355 where the other sequence-only families average 0.39 to 0.47 has
+less to lose. The pattern is reported with that row in it rather than trimmed,
+because trimming a single inconvenient family is how a trend becomes a story.
+
+ProteinGym's two-stage headlines are the numbers a reader will find in the paper.
+The plain per-assay means are higher -- 0.438 for ESM-2 650M -- and quoting one
+against the other is the mistake the aggregation section of the README warns
+about, so the comparison uses each method's published headline only for the values
+it lists as headlines, and the gap table uses the per-assay column for every
+method identically.
 """
 
 import sys

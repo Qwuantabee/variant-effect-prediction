@@ -118,6 +118,40 @@ the residual, and the run flags it (residual_exceeds_total). Singles predict
 doubles at rho = +0.656 on average. A scorer that assumes independence ranks the
 variants where that assumption is most violated as well as or better than the
 ones where it holds.
+
+
+Per-assay raw gaps and what the five assays measure (moved from the README)
+----------------------------------------------------------------------------
+Pooled over the five assays the independent-site score ranks multi-mutants better
+than single mutants: +0.481 mean Spearman against +0.346, and 0.294 against 0.213
+on top-decile recall, over 60,277 scored multi-mutant rows against 5,453
+single-mutant rows. Four of five assays point the same way in point estimate.
+Every interval is a position bootstrap, because variants cluster by position:
+only HIS7's gap (-0.510 [-0.691, -0.109], 170 positions) excludes zero on the
+favourable side; GFP (-0.071 [-0.235, +0.105]), PHOT (-0.139 [-0.226, +0.381])
+and SPG1 (-0.031 [-0.111, +0.066]) span zero. GRB2 goes the other way by +0.075
+Spearman, and its interval [-0.008, +0.199] spans zero too. (An earlier version
+of the README said three of four intervals excluded zero favourably and that
+GRB2's was the only one excluding it against the hypothesis; those came from a
+variant-level bootstrap, which is too narrow for clustered variants.) The mean gap
+is -0.135 Spearman (paired t = -1.36, p = 0.25, five assays) and -0.081
+top-decile recall (t = -1.24, p = 0.28). The singles-versus-doubles-only gap is
+GFP +0.083, GRB2 +0.075, HIS7 -0.128, PHOT -0.075 and SPG1 -0.031.
+
+All five are ProteinGym substitution assays with a single readout per variant.
+The output carries a boolean different_quantity_flag per assay (True only if the
+assay belongs to a pair on the repo's different-quantity list: False for all
+five) and the reference table's coarse selection type (GFP Activity, GRB2 and
+HIS7 OrganismalFitness, PHOT Activity, SPG1 Binding). The reference table records
+one type per assay, not per library, so it cannot show that a singles library
+and a combinatorial library of the same assay were scored for the same quantity;
+that is assumed, not verified. A second caveat is coverage: the position-matched
+control shows how narrow these libraries are, and CAPSD_AAV2S_Sinai_2021 (41,796
+multi-mutants over a 735-residue protein) was left out on CPU cost, so the
+largest viral library is not represented. Reporting a top-k recall alongside a
+Spearman, without the assay's own replicate agreement, can make a model look
+worse than it is; the comparison for a top-10 number is another measurement of
+the same assay, not a perfect oracle.
 """
 
 import argparse
