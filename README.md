@@ -631,7 +631,7 @@ scripts/
     make_figures.py           every figure; --only findings needs no model
     (plus the analysis scripts named in the sections above; figures a-g read their results/)
 RESULTS.md         the bulky generated tables the README refers to
-tests/             274 tests; the ones needing a GPU and a model download are
+tests/             276 tests; the ones needing a GPU and a model download are
                    marked slow
 ```
 
@@ -639,7 +639,7 @@ tests/             274 tests; the ones needing a GPU and a model download are
 
 ```
 pip install -e ".[dev]"
-pytest -m "not slow"        # 259 tests, no model needed
+pytest -m "not slow"        # 261 tests, no model needed
 pytest -m slow              # downloads an 8M checkpoint, ~30 MB
 ```
 
