@@ -1,2 +1,2 @@
-n_no_alignment,n_alignment,median_gap_no_alignment,median_gap_alignment,mannwhitney_u,p_no_alignment_worse
-23,19,-0.11617741935483877,-0.02213440860215049,87.0,0.0004657312248801153
+n_no_alignment,n_alignment,median_gap_no_alignment,median_gap_alignment,mannwhitney_u,p_no_alignment_worse,n_families_no_alignment,n_families_alignment,median_family_gap_no_alignment,median_family_gap_alignment,mannwhitney_u_family_level,p_family_level_exact
+23,19,-0.11617741935483877,-0.02213440860215049,87.0,0.0004657312248801153,6,8,-0.1421586021505376,-0.017077956989247405,8.0,0.021312021312021312

@@ -167,8 +167,19 @@ def family_table(per_method):
 def gap_separation(per_method, family):
     """Do the no-alignment families and the alignment families differ in gap?
 
-    A Mann-Whitney test over per-method gaps, because the distribution is not
-    symmetric across 97 methods and the sample is small once grouped.
+    UNIT OF INFERENCE = THE FAMILY. Checkpoints of one family (ESM-2 8M ...
+    15B, Progen2 S ... XL) are the same architecture and training data at
+    different sizes; they are not independent draws of a method, and a test over
+    them counts one family many times. The test of record is therefore an EXACT
+    one-sided Mann-Whitney over family-mean gaps (family_table's gap column):
+    p_family_level_exact, with n_families_* and the family-level medians. With
+    6 versus 8 families the exact null enumerates all 3,003 labellings, so no
+    normal approximation is involved.
+
+    The checkpoint-level test (23 versus 19 checkpoints) is still returned, as
+    p_no_alignment_worse with the checkpoint counts and medians, ONLY for
+    continuity with earlier output: it is pseudo-replicated and its p overstates
+    the evidence by a large factor. Do not quote it as a significance.
     """
     by_method = per_method.set_index("method")["gap"]
     no_align, align = [], []
@@ -178,7 +189,7 @@ def gap_separation(per_method, family):
     if len(no_align) < 3 or len(align) < 3:
         return {}
     u, p = stats.mannwhitneyu(no_align, align, alternative="less")
-    return {
+    out = {
         "n_no_alignment": len(no_align),
         "n_alignment": len(align),
         "median_gap_no_alignment": float(np.median(no_align)),
@@ -186,6 +197,22 @@ def gap_separation(per_method, family):
         "mannwhitney_u": float(u),
         "p_no_alignment_worse": float(p),
     }
+    if (family is not None and len(family)
+            and "reads_alignment_of_the_family" in family.columns):
+        fam_no = family.loc[~family["reads_alignment_of_the_family"], "gap"]
+        fam_yes = family.loc[family["reads_alignment_of_the_family"], "gap"]
+        if len(fam_no) >= 3 and len(fam_yes) >= 3:
+            uf, pf = stats.mannwhitneyu(fam_no, fam_yes, alternative="less",
+                                        method="exact")
+            out.update({
+                "n_families_no_alignment": int(len(fam_no)),
+                "n_families_alignment": int(len(fam_yes)),
+                "median_family_gap_no_alignment": float(fam_no.median()),
+                "median_family_gap_alignment": float(fam_yes.median()),
+                "mannwhitney_u_family_level": float(uf),
+                "p_family_level_exact": float(pf),
+            })
+    return out
 
 
 def main():
@@ -240,11 +267,20 @@ def main():
     print(f"methods with a gap < -0.15: "
           f"{int((per_method['gap'] < -0.15).sum())} of {len(per_method)}")
 
-    if sep:
-        print(f"\nno-alignment families median gap "
-              f"{sep['median_gap_no_alignment']:+.3f} vs alignment families "
-              f"{sep['median_gap_alignment']:+.3f} "
-              f"(Mann-Whitney p={sep['p_no_alignment_worse']:.3g})")
+    if sep and "p_family_level_exact" in sep:
+        print(f"\nfamily level ({sep['n_families_no_alignment']} vs "
+              f"{sep['n_families_alignment']} families): median family gap "
+              f"{sep['median_family_gap_no_alignment']:+.3f} vs "
+              f"{sep['median_family_gap_alignment']:+.3f}, exact one-sided "
+              f"Mann-Whitney U={sep['mannwhitney_u_family_level']:.0f} "
+              f"p={sep['p_family_level_exact']:.4f}")
+        print(f"(checkpoint level, pseudo-replicated, NOT a significance: "
+              f"{sep['n_no_alignment']} vs {sep['n_alignment']} checkpoints, "
+              f"p={sep['p_no_alignment_worse']:.3g})")
+    elif sep:
+        print(f"\nno-alignment checkpoints median gap "
+              f"{sep['median_gap_no_alignment']:+.3f} vs alignment "
+              f"{sep['median_gap_alignment']:+.3f} (no family-level test)")
 
     print(f"\nwrote {OUT}")
 

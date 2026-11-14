@@ -101,3 +101,95 @@ def test_separation_needs_both_groups():
                           "gap": [], "gap_se": [], "gap_t": [],
                           "n_assays": []})
     assert rfa.gap_separation(empty, pd.DataFrame()) == {}
+
+
+
+# ----------------------------------------------------------------------
+# family-level inference (review C6): the unit that varies is the family
+# ----------------------------------------------------------------------
+
+def _synthetic_methods_and_families(no_gaps, yes_gaps, per_family=4, seed=0):
+    """Build per_method / family frames in the shapes gap_separation reads,
+    over the real FAMILIES keys so the NO_ALIGNMENT membership is the repo's."""
+    import run_family_analysis as rfa
+    rng = np.random.default_rng(seed)
+    no_fams = [f for f in rfa.FAMILIES if f in rfa.NO_ALIGNMENT]
+    yes_fams = [f for f in rfa.FAMILIES if f not in rfa.NO_ALIGNMENT]
+    assert len(no_fams) == len(no_gaps) and len(yes_fams) == len(yes_gaps)
+    method_rows, fam_rows = [], []
+    for fams, gaps in ((no_fams, no_gaps), (yes_fams, yes_gaps)):
+        for fam, g in zip(fams, gaps):
+            members = rfa.FAMILIES[fam]
+            vals = g + rng.normal(0, 0.001, len(members))
+            for c, v in zip(members, vals):
+                method_rows.append({"method": c, "gap": v})
+            fam_rows.append({"family": fam, "gap": float(np.mean(vals)),
+                             "reads_alignment_of_the_family":
+                             fam not in rfa.NO_ALIGNMENT})
+    return pd.DataFrame(method_rows), pd.DataFrame(fam_rows)
+
+
+def _brute_force_exact_p(no, yes):
+    """P(U <= observed) over every labelling of the pooled families; written
+    independently of scipy."""
+    import itertools
+    pooled = list(no) + list(yes)
+    n_no = len(no)
+
+    def u_of(group_idx):
+        grp = [pooled[i] for i in group_idx]
+        rest = [pooled[i] for i in range(len(pooled)) if i not in group_idx]
+        return sum((a > b) + 0.5 * (a == b) for a in grp for b in rest)
+
+    obs = u_of(tuple(range(n_no)))
+    count = total = 0
+    for idx in itertools.combinations(range(len(pooled)), n_no):
+        total += 1
+        count += u_of(idx) <= obs + 1e-12
+    return count / total
+
+
+def test_family_level_p_is_an_exact_test_over_family_means_not_checkpoints():
+    """The p of record uses 6 vs 8 FAMILIES. The checkpoint-level p (23 vs 19)
+    is returned only as a legacy key and is much smaller on the same data."""
+    import run_family_analysis as rfa
+    no = [-0.20, -0.15, -0.12, -0.08, -0.05, 0.01]
+    yes = [-0.10, -0.04, -0.02, -0.01, 0.0, 0.02, 0.03, 0.05]
+    per_method, family = _synthetic_methods_and_families(no, yes)
+    sep = rfa.gap_separation(per_method, family)
+    assert sep["n_families_no_alignment"] == 6
+    assert sep["n_families_alignment"] == 8
+    expected = _brute_force_exact_p(
+        family.loc[~family["reads_alignment_of_the_family"], "gap"].tolist(),
+        family.loc[family["reads_alignment_of_the_family"], "gap"].tolist())
+    assert sep["p_family_level_exact"] == pytest.approx(expected, abs=1e-9)
+    # pseudo-replication: counting checkpoints makes the same data look far
+    # stronger than counting families does
+    assert sep["p_no_alignment_worse"] < sep["p_family_level_exact"] / 5
+
+
+def test_family_level_test_needs_three_families_per_group():
+    import run_family_analysis as rfa
+    per_method, family = _synthetic_methods_and_families(
+        [-0.2] * 6, [-0.01] * 8)
+    short = family.iloc[:2]            # two no-alignment families only
+    sep = rfa.gap_separation(per_method, short)
+    assert "p_family_level_exact" not in sep
+    assert "p_no_alignment_worse" in sep      # checkpoint level still returned
+
+
+@requires_published
+def test_family_level_p_on_the_published_table_is_the_one_the_readme_quotes():
+    """On the real per-assay table: 6 vs 8 families, exact one-sided U = 8. The
+    p is recomputed from the table and compared with the artefact the README
+    renders, so a drift in either is caught."""
+    import run_family_analysis as rfa
+    per_method = rfa.per_method_gap(data.official_scores())
+    family = rfa.family_table(per_method)
+    sep = rfa.gap_separation(per_method, family)
+    assert (sep["n_families_no_alignment"], sep["n_families_alignment"]) == (6, 8)
+    assert sep["mannwhitney_u_family_level"] == 8.0
+    assert 0.01 < sep["p_family_level_exact"] < 0.05
+    art = pd.read_csv(ROOT / "results" / "families" / "family_separation.csv")
+    assert art["p_family_level_exact"].iloc[0] == pytest.approx(
+        sep["p_family_level_exact"])
