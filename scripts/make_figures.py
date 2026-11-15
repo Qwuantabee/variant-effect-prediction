@@ -605,9 +605,14 @@ def fig_model_vs_ceiling():
     ]
     a1.legend(handles=handles, loc="upper left", fontsize=7, framealpha=0.95)
     s = d["single"]
-    fig.suptitle(f"The model's top-10 recall is below truth-vs-truth recall on "
-                 f"{s['below']} of {d['n']} pairs (above on {s['above']}, level "
-                 f"on {s['on']})", fontsize=11, x=0.5, y=0.975)
+    sp = d["pooled"]
+    # Wording (2026-11-15): this quoted only the left panel's counts while the
+    # right panel shows different ones, so a reader could not tell which panel
+    # the sentence described. Name both.
+    fig.suptitle(f"The model's top-10 recall is below truth-vs-truth recall:\n"
+                 f"{s['below']} of {d['n']} pairs vs one assay (above {s['above']}, "
+                 f"level {s['on']}); {sp['below']} of {d['n']} vs the pooled target "
+                 f"(above {sp['above']}, level {sp['on']})", fontsize=10.5, x=0.5, y=0.975)
     _source_note(fig, f"source: results/latent_truth/per_pair.csv  |  {d['n']} "
                       "replicate pairs, k = 10 picks (recall takes multiples of "
                       "0.05: marker area = number of pairs at that point, count "
