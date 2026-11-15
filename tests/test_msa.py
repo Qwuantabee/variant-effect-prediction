@@ -266,12 +266,22 @@ def test_beats_esm2_on_the_viral_failure_case():
     this project has.
     """
     from variant_effect import data, evaluate
+    from conftest import require
 
     ref = data.reference_table()
     aid = "R1AB_SARS2_Flynn_2022"
+    # Guard (2026-11-15): this is the one test that still failed under
+    # VE_ALLOW_MISSING_DATA=1, because it opens an MSA file and an assay CSV
+    # without checking they exist. It is slow-marked, so CI never reached it, but
+    # a reader following the README's escape hatch on a bare clone hit a
+    # FileNotFoundError instead of a skip. Same helper as everywhere else.
+    msa_file = data.msa_path(aid, reference=ref)
+    require(msa_file.exists(), f"MSA for {aid} not downloaded")
+    require((data.ASSAY_DIR / f"{aid}.csv").exists(),
+            f"assay CSV for {aid} not downloaded")
     row = ref[ref["DMS_id"] == aid].iloc[0]
     query, others = msa.parse_a2m(
-        data.msa_path(aid, reference=ref).read_text(errors="replace"))
+        msa_file.read_text(errors="replace"))
     rng = np.random.default_rng(0)
     n = min(50000, len(others))
     idx = np.sort(rng.choice(len(others), n, replace=False))

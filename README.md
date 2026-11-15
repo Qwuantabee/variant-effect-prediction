@@ -651,13 +651,22 @@ did not ask to miss is a failure, not a pass. Either fetch the data
 machine without it using the explicit escape:
 
 ```
-VE_ALLOW_MISSING_DATA=1 pytest -m "not slow"    # 6 fail, 3 skip on an empty data/
+VE_ALLOW_MISSING_DATA=1 pytest -m "not slow"    # 253 passed, 8 skipped, no data/
+VE_ALLOW_MISSING_DATA=1 pytest                  # 267 passed, 9 skipped, no data/
 ```
 
-Even with the escape some result-consuming tests still fail, because they read
-committed `results/` artefacts that are only meaningful next to the assays they
-were computed from. The suite is green on the machine that produced the results
-(274 passed) and that is the state the numbers below refer to.
+Every test that needs an assay, an MSA or a results file now guards on that file
+and skips under the escape instead of raising. That was not true before
+2026-11-15: six tests called the loader without a guard, so the documented escape
+still produced failures. If you add a test that reads data, use
+`conftest.require(...)` - a bare `open()` turns a missing download into a crash.
+
+Without the escape, on an empty `data/`: 9 failed, 267 passed. That is the
+intended behaviour - it tells you the data is missing rather than quietly
+reporting a smaller green run.
+
+The suite is fully green on the machine that produced these results (276 passed)
+and that is the state the numbers below refer to.
 
 Two environment notes, both of which cost time to work out:
 
