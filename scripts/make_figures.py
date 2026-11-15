@@ -970,13 +970,23 @@ def fig_family_test_unit():
         y = 1 - i
         axp.scatter([p], [y], s=110, color=color, edgecolor="black", linewidth=0.8,
                     zorder=4, marker="o")
-        axp.text(p, y + 0.2, f"p = {p:.5f}" if p < 0.001 else f"p = {p:.4f}",
-                 ha="center", va="bottom", fontsize=9, fontweight="bold")
-        axp.text(0.5, y - 0.2, label, transform=axp.get_yaxis_transform(),
-                 ha="center", va="top", fontsize=7.5)
+        # Right-aligned off the point, not centred on it: the smaller p sits at
+        # 0.0213 on a log axis whose 0.05 rule is close by, so a centred label was
+        # struck through by that rule (a vision pass caught "p = 0.0213").
+        axp.text(p, y + 0.22, f"p = {p:.5f}" if p < 0.001 else f"p = {p:.4f}",
+                 ha="right", va="bottom", fontsize=9, fontweight="bold",
+                 bbox=dict(facecolor="white", edgecolor="none", pad=0.8), zorder=6)
+        # Left-aligned with an opaque mask. Centred at 0.5 axes fraction the
+        # text spanned the 0.05 line (which sits at ~0.68 of a log axis running
+        # 1e-4..1), so the dashed rule struck through "vs 19" and "6 vs 8".
+        axp.text(0.02, y - 0.2, label, transform=axp.get_yaxis_transform(),
+                 ha="left", va="top", fontsize=7.5,
+                 bbox=dict(facecolor="white", edgecolor="none", pad=0.8), zorder=5)
     axp.axvline(0.05, color="black", ls="--", lw=1.2, zorder=2)
     axp.set_xscale("log")
-    axp.set_xlim(1e-4, 1)
+    # Past 1, not to it: with the limit exactly at 1 the 10^0 tick label was cut in
+    # half by the axes frame.
+    axp.set_xlim(1e-4, 1.9)
     axp.set_ylim(-0.75, 1.75)
     axp.set_yticks([])
     axp.grid(axis="x", color="0.93", lw=0.5)
@@ -1051,10 +1061,14 @@ def fig_his7_residual():
         a2.barh(y, r["nonadditive_residual_var_share"], height=0.5,
                 color="C3" if flag else "C0", edgecolor="black", linewidth=0.5,
                 zorder=3)
+        # PHOT's share is 0.894, so a label starting 0.02 to its right ran into
+        # the dashed 1.00 rule. Opaque mask keeps the digits readable wherever the
+        # share happens to land.
         a2.text(r["nonadditive_residual_var_share"] + 0.02, y,
                 f"{r['nonadditive_residual_var_share']:.3f}"
                 + ("  > 1" if flag else ""), va="center", fontsize=8,
-                fontweight="bold" if flag else "normal")
+                fontweight="bold" if flag else "normal",
+                bbox=dict(facecolor="white", edgecolor="none", pad=0.8), zorder=5)
     a1.set_yticks(ys)
     a1.set_yticklabels([f"{_short_assay(i)}\n{int(r['n_doubles_with_singles']):,} doubles "
                         f"with both singles" for i, r in a.iterrows()], fontsize=7.5)
@@ -1065,7 +1079,8 @@ def fig_his7_residual():
     a2.text(1.06, 1.2, "a share above 1 is impossible\nfor a real variance component:\n"
             "the residual is mostly noise", fontsize=7.2, va="center", ha="left",
             bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="grey", lw=0.5, alpha=0.9))
-    a2.set_xlim(0, 2.0)
+    # 2.18, not 2.0: the "2.00" tick sat on the frame edge and was clipped.
+    a2.set_xlim(0, 2.18)
     a1.set_xlim(0, float(a["double_total_sd_z"].max()) * 1.2)
     a2.set_ylim(-0.6, n - 0.1)
     for ax in (a1, a2):
