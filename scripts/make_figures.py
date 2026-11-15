@@ -30,6 +30,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
@@ -64,6 +65,15 @@ def fig_method_comparison(df):
                    vals, s=26, alpha=0.75, edgecolor="black", linewidth=0.4,
                    color="C0" if method == "esm2" else "C7")
         ax.hlines(vals.mean(), i - 0.3, i + 0.3, color="C3", lw=2, zorder=5)
+
+    # Legend (2026-11-15): the red horizontal rules were the per-method mean and
+    # the blue dots flagged esm2, but neither was explained on the figure.
+    handles = [Line2D([], [], marker="o", ls="", color="C0", mec="black", mew=0.4,
+                      ms=6, label="ESM-2 650M"),
+               Line2D([], [], marker="o", ls="", color="C7", mec="black", mew=0.4,
+                      ms=6, label="baseline methods"),
+               Line2D([], [], color="C3", lw=2, label="method mean")]
+    ax.legend(handles=handles, fontsize=7.5, frameon=False, loc="upper right")
 
     ax.set_xticks(range(len(order)))
     ax.set_xticklabels(order, rotation=30, ha="right")
@@ -141,17 +151,26 @@ def fig_landscape(assay_id="IF1_ECOLI_Kelsic_2016"):
             obs[order[s.mut], s.idx] = score
 
     fig, axes = plt.subplots(2, 1, figsize=(13, 6), sharex=True)
-    for ax, mat, title, cmap in [
+    # Label honesty (2026-11-15): both colourbars were unlabelled and the y axis
+    # had no title, so a reader could not tell what the colour scale measured or
+    # that the rows are amino acids. The two panels have different units - a
+    # log-odds score in one, a fitness measurement in the other - so one label
+    # cannot serve both.
+    for ax, mat, title, cmap, cbar_label in [
             (axes[0], pred, "ESM-2 650M predicted effect (log-odds vs wildtype)",
-             "RdBu"),
-            (axes[1], obs, "Measured fitness (Kelsic 2016)", "RdBu")]:
+             "RdBu", "log-odds vs the wild-type residue"),
+            (axes[1], obs, "Measured fitness (Kelsic 2016)", "RdBu",
+             "measured DMS fitness score")]:
         v = np.nanpercentile(np.abs(mat), 98)
         im = ax.imshow(mat, aspect="auto", cmap=cmap, vmin=-v, vmax=v,
                        interpolation="nearest")
         ax.set_yticks(range(20))
         ax.set_yticklabels(aa_order, fontsize=6)
+        ax.set_ylabel("substituted amino acid", fontsize=8)
         ax.set_title(title, fontsize=9)
-        fig.colorbar(im, ax=ax, fraction=0.015, pad=0.01)
+        cb = fig.colorbar(im, ax=ax, fraction=0.015, pad=0.01)
+        cb.set_label(cbar_label, fontsize=7)
+        cb.ax.tick_params(labelsize=6)
 
     axes[1].set_xlabel("residue position")
     rho = evaluate.spearman(pred[~np.isnan(obs)], obs[~np.isnan(obs)])
@@ -171,12 +190,23 @@ def fig_by_taxon(df):
     fig, ax = plt.subplots(figsize=(5.5, 4))
     groups = esm.groupby("taxon")["spearman"]
     names = list(groups.groups)
-    ax.bar(names, [groups.get_group(n).mean() for n in names],
-           color=["C3" if n == "Virus" else "C0" for n in names],
-           edgecolor="black", linewidth=0.5)
+    # Legend (2026-11-15): the Virus bar was red with nothing saying why, and the
+    # per-taxon n was invisible even though two of the four bars are a single
+    # assay. Both are now on the figure.
+    bars = ax.bar(names, [groups.get_group(n).mean() for n in names],
+                  color=["C3" if n == "Virus" else "C0" for n in names],
+                  edgecolor="black", linewidth=0.5)
     for i, n in enumerate(names):
         vals = groups.get_group(n)
         ax.scatter(np.full(len(vals), i), vals, color="black", s=14, zorder=3)
+        ax.text(i, -0.055, f"n={len(vals)}", ha="center", va="top", fontsize=7)
+    handles = [Patch(facecolor="C3", edgecolor="black", lw=0.5,
+                     label="Virus (the known weakness)"),
+               Patch(facecolor="C0", edgecolor="black", lw=0.5,
+                     label="other taxa"),
+               Line2D([], [], marker="o", ls="", color="black", ms=4,
+                      label="one assay")]
+    ax.legend(handles=handles, fontsize=7, frameon=False, loc="upper right")
     ax.set_ylabel("Spearman")
     ax.set_title("ESM-2 650M by taxon", fontsize=10)
     fig.tight_layout()
