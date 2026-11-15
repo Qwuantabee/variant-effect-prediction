@@ -104,8 +104,12 @@ def fig_vs_official(df):
     ax.plot(lim, lim, ls="--", lw=1, color="grey")
     ax.scatter(xs, ys, s=50, edgecolor="black", linewidth=0.5, zorder=3)
     for x, y, lab in zip(xs, ys, labels):
-        ax.annotate(lab, (x, y), xytext=(4, 3), textcoords="offset points",
-                    fontsize=7)
+        # Alternate the offset (2026-11-15): six assays cluster near 0.5-0.6 and
+        # their labels printed on top of each other, which made the panel's own
+        # point unreadable.
+        dx, dy = ((4, 3) if float(x) + float(y) >= 1.1 else (4, -9))
+        ax.annotate(lab, (x, y), xytext=(dx, dy), textcoords="offset points",
+                    fontsize=6.5, ha="left" if dx > 0 else "right")
 
     resid = np.array(ys) - np.array(xs)
     ax.set(xlabel="ProteinGym published Spearman",
@@ -520,7 +524,7 @@ def fig_recall_vs_rank_p():
     cross = sum(p < 0.05 for p in rec)
     fig, (axr, axs) = plt.subplots(1, 2, figsize=(11, 5.4), sharey=True,
                                    gridspec_kw=dict(wspace=0.06, left=0.2,
-                                                    right=0.985, top=0.8,
+                                                    right=0.96, top=0.8,
                                                     bottom=0.17))
     draw_pvalue_rows(axr, pvalue_panel_rows(rows, "recall", "C3"))
     axr.set_xlim(0, 0.34)
@@ -1056,9 +1060,12 @@ def fig_his7_residual():
                         f"with both singles" for i, r in a.iterrows()], fontsize=7.5)
     a1.tick_params(axis="y", length=0)
     a2.axvline(1.0, color="black", ls="--", lw=1.4, zorder=2)
-    a2.text(1.03, 1.2, "a share above 1 is impossible\nfor a real variance component:\n"
-            "the residual is mostly noise", fontsize=7.5, va="center", ha="left")
-    a2.set_xlim(0, 1.75)
+    # Placement (2026-11-15): the annotation ran past the axes frame and the
+    # 1.75 tick was clipped. Text is inside the limit now and the limit has room.
+    a2.text(1.06, 1.2, "a share above 1 is impossible\nfor a real variance component:\n"
+            "the residual is mostly noise", fontsize=7.2, va="center", ha="left",
+            bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="grey", lw=0.5, alpha=0.9))
+    a2.set_xlim(0, 2.0)
     a1.set_xlim(0, float(a["double_total_sd_z"].max()) * 1.2)
     a2.set_ylim(-0.6, n - 0.1)
     for ax in (a1, a2):
