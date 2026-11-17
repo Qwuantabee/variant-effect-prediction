@@ -29,9 +29,9 @@ jobs:
       # The ProteinGym assays are NOT committed (data/ is git-ignored, ~400 MB),
       # so CI runs with the documented escape and skips the tests that need the
       # real assays. Measured on a checkout with no data/ at all and with the
-      # guards from 2723ac9 in place: 251 passed, 8 skipped.
+      # guards from 2723ac9 in place: 253 passed, 8 skipped.
       #
-      # The suite is fully green on a machine that holds the data (274 passed);
+      # The suite is fully green on a machine that holds the data (276 passed);
       # this job deliberately proves less, and says so rather than pretending.
       #
       # -m "not slow" drops the tests needing a model download and a GPU.
