@@ -6,8 +6,8 @@
 # run as separate user units. Every command here is well under ten minutes;
 # the shards are detached because the *total* is about an hour.
 #
-# CPU only. Never CUDA: the box's GPU is reserved, and ESMScorer would pick it
-# by default.
+# CPU only (CUDA_VISIBLE_DEVICES is emptied below): ESMScorer would otherwise
+# pick a GPU by default.
 #
 # Shards are balanced by *measured* cost, positions x sequence length, not by
 # protein count: S22A1 needs 547 positions and SPIKE 201 positions of a
@@ -18,8 +18,10 @@
 # wall-clock. Each shard resumes from the per-protein cache, so a restart is
 # cheap and nothing is scored twice.
 set -u
-REPO=~/Documents/biotech-portfolio/variant-effect
-PY=/home/ubuntu/.openclaw/workspace/venv/bin/python
+# Repo root is the parent of this script's directory; the interpreter is the
+# one on PATH unless PYTHON is set (e.g. PYTHON=.venv/bin/python).
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PY="${PYTHON:-python}"
 cd "$REPO" || exit 1
 
 mkdir -p results/latent_truth/_cache
