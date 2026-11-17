@@ -41,6 +41,16 @@ jobs:
           HF_HUB_OFFLINE: "1"
         run: python -m pytest tests/ -q -m "not slow"
 
+      - name: generated tables in README.md and RESULTS.md equal their renderers
+        # Only one of the ten GENERATED blocks in README.md is pinned by a test,
+        # so a hand-edited number inside the other nine passed the suite. The
+        # renderer rewrites every block from results/ (plus the 0.1 MB published
+        # per-assay table, fetched on demand); any difference from what is
+        # committed fails here.
+        run: |
+          python scripts/report_tables.py --write > /dev/null
+          git diff --exit-code -- README.md RESULTS.md
+
       - name: findings figures regenerate from committed artefacts
         # The --only findings group reads results/ CSVs and needs no model, so it
         # is cheap enough for CI. A figure whose input stopped being committed
