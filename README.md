@@ -1,5 +1,9 @@
 # Zero-shot variant effect prediction with ESM-2
 
+[![tests](https://github.com/Qwuantabee/variant-effect-prediction/actions/workflows/tests.yml/badge.svg)](https://github.com/Qwuantabee/variant-effect-prediction/actions/workflows/tests.yml)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Qwuantabee/variant-effect-prediction/blob/main/LICENSE)
+[![python](https://img.shields.io/badge/python-3.10--3.12-blue.svg)](https://github.com/Qwuantabee/variant-effect-prediction/blob/main/pyproject.toml)
+
 Scoring missense variants with a protein language model that has never seen a
 fitness measurement, benchmarked against experimental deep mutational scanning
 data from ProteinGym, and checked against the official published numbers.
