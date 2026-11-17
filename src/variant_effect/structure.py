@@ -1,8 +1,9 @@
 """Structure-aware scoring: buried vs exposed positions.
 
 The open question the README flags is whether the top-k failure -- a
-respectable Spearman but a model whose top 10 picks are no better than random
-on five of nine assays -- comes from treating buried and exposed positions the
+respectable Spearman but a model whose top 10 picks are at or below the random
+rate on three of nine assays (seven of nine hold at most two true top-decile
+variants) -- comes from treating buried and exposed positions the
 same. The intuition is reasonable: a buried residue is packed against the
 hydrophobic core, so almost any substitution is destabilising, and the ranking
 among those variants is compressed; an exposed residue trades with solvent, so

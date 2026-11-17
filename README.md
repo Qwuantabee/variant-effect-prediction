@@ -354,7 +354,8 @@ population, 217 assays; those are not comparable, hence the 0.329 over the 51
 assays in the 37 pairs. And the honest question is not "is the model near
 0.35" but "does the model's recall rise when the target gets closer to the
 truth". Inside one assay's top decile the measurement error (median 0.592 sd
-units) is larger than the decile's whole spread (0.294); on 29 of 37 pairs the
+units) is larger than the first assay's decile spread (median sd 0.294; the second
+assay's is 0.235); on 29 of 37 pairs the
 decile's range is smaller than one measurement's error. That says the decile is
 hard to resolve, not that it cannot be ranked (the simulated control in the
 `run_topk_analysis.py` docstring shows why).

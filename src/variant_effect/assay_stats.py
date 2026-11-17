@@ -1,8 +1,9 @@
 """What a DMS assay can and cannot resolve, measured from the assays themselves.
 
 The top-10 recall section of the README asks why the model's ten highest picks
-are no better than random on five of nine assays while its Spearman over the
-same data is 0.6. Burial is ruled out. Two candidates are left, and both are
+are at or below the random rate on three of nine assays (and hold at most two
+true top-decile variants on seven of nine) while its Spearman over the same
+data is 0.6. Burial is ruled out. Two candidates are left, and both are
 properties of the *assay* rather than of the model:
 
   - the assay noise floor: a DMS experiment measures a noisy proxy, and no
