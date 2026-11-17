@@ -1,4 +1,4 @@
-# Zero-shot variant effect prediction with ESM-2
+# Zero-shot variant effect prediction with ESM-2: good ranking, unreliable top ten
 
 [![tests](https://github.com/Qwuantabee/variant-effect-prediction/actions/workflows/tests.yml/badge.svg)](https://github.com/Qwuantabee/variant-effect-prediction/actions/workflows/tests.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Qwuantabee/variant-effect-prediction/blob/main/LICENSE)
@@ -7,13 +7,15 @@
 **Can a protein language model that has never seen a fitness measurement tell
 which mutations break a protein, and which ten variants to build?** ESM-2 650M,
 scored zero-shot on all 217 ProteinGym deep mutational scanning (DMS) assays,
-ranks variants well and picks winners poorly:
+ranks variants well; its top-ten picks beat random on average and are unreliable
+on any one assay:
 
 - **The ranking is real and reproduces the published benchmark**: headline
   Spearman 0.415 here against ProteinGym's 0.414, 214 of 217 assays within 0.01.
-- **The top ten are not**: on seven of nine assays the model's ten highest-ranked
-  variants hold at most two true top-decile variants; random picking reaches two
-  or more 26% of the time.
+- **The top ten are much less reliable**: over 217 assays a mean 3.2 of the
+  model's ten highest-ranked variants are in the measured top 10% (random scores
+  0.9, BLOSUM62 1.7), but on 99 of the 217 it is two or fewer, a count random
+  picking reaches or exceeds 26% of the time.
 - **A cleaner measurement does not rescue them**: scored against the average of
   two assays of the same protein instead of one, top-10 recall does not rise
   significantly (p of at least 0.059 in all 18 tests, 20 proteins).
@@ -149,7 +151,11 @@ assay's top 10%) across the nine assays: 0.0, 0.1, 0.1, 0.2, 0.2, 0.2, 0.2, 0.6,
 random rate and on seven of nine they hold at most two true top-decile variants,
 a count random picking reaches or exceeds 26% of the time (binomial, n = 10,
 p = 0.1), despite a respectable Spearman. (An earlier version said "five of nine"; the committed
-recalls give three or seven depending on the cut, never five.) The model separates
+recalls give three or seven depending on the cut, never five.) Nine assays are a
+small sample: over all 217 (`results/full/esm2_t33_650M_UR50D_per_assay.csv`) the
+model's mean top-10 recall is 0.323 against 0.095 for random scores and 0.168 for
+BLOSUM62, and it is 0.2 or lower on 99 of them, so the top ten beat random on
+average and cannot be relied on for any one assay. The model separates
 dead variants from
 live ones and ranks poorly within the live ones, which is the regime an
 engineering campaign cares about. The sections below ask why.
