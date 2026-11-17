@@ -4,14 +4,27 @@
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Qwuantabee/variant-effect-prediction/blob/main/LICENSE)
 [![python](https://img.shields.io/badge/python-3.10--3.12-blue.svg)](https://github.com/Qwuantabee/variant-effect-prediction/blob/main/pyproject.toml)
 
-Scoring missense variants with a protein language model that has never seen a
-fitness measurement, benchmarked against experimental deep mutational scanning
-data from ProteinGym, and checked against the official published numbers.
+**Can a protein language model that has never seen a fitness measurement tell
+which mutations break a protein, and which ten variants to build?** ESM-2 650M,
+scored zero-shot on all 217 ProteinGym deep mutational scanning (DMS) assays,
+ranks variants well and picks winners poorly:
 
-The question is whether a model trained only to fill in masked residues across
-UniRef has learned enough about protein constraint to predict which mutations
-break a protein. The answer is a qualified yes, and the qualifications are the
-interesting part.
+- **The ranking is real and reproduces the published benchmark**: headline
+  Spearman 0.415 here against ProteinGym's 0.414, 214 of 217 assays within 0.01.
+- **The top ten are not**: on seven of nine assays the model's ten highest-ranked
+  variants hold at most two true top-decile variants; random picking reaches two
+  or more 26% of the time.
+- **A cleaner measurement does not rescue them**: scored against the average of
+  two assays of the same protein instead of one, top-10 recall does not rise
+  significantly (p of at least 0.059 in all 18 tests, 20 proteins).
+- **It fails on animal viruses**: mean Spearman 0.168 over 24 assays, where a
+  plain per-column alignment model scores 0.408.
+
+Terms: *Spearman* is the rank correlation between model score and measured
+fitness over a whole assay; *top-10 recall* is the fraction of the model's ten
+highest-ranked variants that are in the assay's measured top 10%; a *pooled
+target* is the average of two assays of the same protein, a less noisy
+measurement to score against (nothing is trained on it).
 
 ## At a glance
 
@@ -19,12 +32,21 @@ interesting part.
 
 - **(a) A better target ranks better.** Pooling two assays of the same protein
   raises the model's Spearman in 32 of 32 replicate pairs (median +0.045) and in
-  20 of 20 proteins (median +0.051).
+  20 of 20 proteins (median +0.051). Most of this is arithmetic, not a property of
+  the model: averaging two standardised assays raises *any* positively correlated
+  predictor's correlation by 1/sqrt((1 + r_AB)/2) (exact for Pearson, approximate
+  for Spearman), and that identity alone
+  predicts a gain in 32 of 32 pairs and tracks the observed gains at r = 0.94.
+  The 32 pairs are not 32 independent units either (20 proteins, 46 assays, P53
+  alone in 6 pairs), and only 13 measure the same quantity twice.
 - **(b) It does not pick the top ten better, not significantly.** Top-10 recall
   gains p = 0.0655 / 0.0710 / 0.102 (pair level) and 0.102 / 0.117 / 0.167
   (protein level, the primary test); none of the six crosses 0.05, nor does any
   of the 18 tests that also cover the same-quantity and reliable-pair subsets
-  (smallest p = 0.059). The Spearman gain is p < 0.012 in all 18.
+  (smallest p = 0.059). The Spearman gain is p < 0.012 in all 18. The 18 are
+  three tests x two levels x three nested subsets of the same pairs: correlated
+  looks at one data set, with no multiple-testing correction. A correction can
+  only raise the recall p-values, so the null reading does not depend on it.
 - **(c) The model is not shown to match truth-vs-truth, or to fall short of it.**
   On 17 of 32 pairs its top-10 recall is below the agreement of the pair's two
   assays, on 14 above, on 1 level; the shortfall is not significant (p = 0.146 /
@@ -35,11 +57,36 @@ interesting part.
   (excludes zero) when the 20,124 doubles are resampled as independent variants
   and [−0.192, +0.017] (includes zero) when the 187 positions are resampled.
 
-Three more things the review changed, each with its own figure below: matching the
+Three corrections to earlier versions of this README, each with its own figure
+below: matching the
 fitness range removes most of the singles-versus-multi gap (figure e); HIS7's
 "epistatic" residual is larger than the doubles' own total variance, so it is mostly
 noise (figure g); and the viral-gap family test is p = 0.0213, not the 0.00047 that
 counting checkpoints gave (figure f).
+
+## Limits that matter
+
+- **Zero-shot means no fitness labels, not unseen proteins.** ESM-2 was trained on
+  UniRef, which contains the wild-type sequences of the assayed proteins and
+  their homologs.
+- **DMS fitness is a lab proxy.** Growth, binding, fluorescence or abundance in a
+  construct is not clinical pathogenicity; nothing here supports clinical use
+  (see "What this work does not cover").
+- **Substitutions only.** No indels anywhere in the benchmark or the pipeline.
+- **The replicate analysis is small and clustered.** 32 pairs from 20 proteins;
+  19 of the 32 pair assays of *different* quantities, so their average is a
+  pseudo-quantity. The protein-level tests are the primary ones for that reason.
+- **Top-10 recall is a ten-variant metric.** It moves in steps of 0.1 per assay
+  and is noisy at n = 9 or n = 20; "not significant" here is absence of evidence
+  at this sample size, not evidence of no effect.
+- **Groupings are the author's.** The same-quantity list, the 14 method families
+  and the alignment / no-alignment split are hand-curated; the family test
+  (p = 0.0213) rests on 6 against 8 families.
+- **Published columns are quoted, not rerun.** The 3B/15B scaling and the
+  97-method family comparison use ProteinGym's published per-assay table; only
+  ESM-2 8M to 650M was run locally.
+- **Licences.** Code MIT; ESM-2 weights MIT (Meta); ProteinGym MIT. No assay
+  data or weights are redistributed here.
 
 ## Does the implementation actually work
 
@@ -98,8 +145,12 @@ fine or obviously dead. For choosing a handful of variants to build, the
 question is how many of the model's top picks are genuinely good. Top-10 recall
 (the fraction of the model's 10 highest-ranked variants that are truly in the
 assay's top 10%) across the nine assays: 0.0, 0.1, 0.1, 0.2, 0.2, 0.2, 0.2, 0.6,
-0.9; random scores 0.1. On five of nine the top 10 picks are no better than
-random despite a respectable Spearman: the model separates dead variants from
+0.9; random scores 0.1. On three of nine the top 10 picks are at or below the
+random rate and on seven of nine they hold at most two true top-decile variants,
+a count random picking reaches or exceeds 26% of the time (binomial, n = 10,
+p = 0.1), despite a respectable Spearman. (An earlier version said "five of nine"; the committed
+recalls give three or seven depending on the cut, never five.) The model separates
+dead variants from
 live ones and ranks poorly within the live ones, which is the regime an
 engineering campaign cares about. The sections below ask why.
 
@@ -128,7 +179,8 @@ line up with the measured ones at Spearman 0.598.
 ## The full benchmark, and the aggregation nobody mentions
 
 The nine-assay subset is eight small single-mutant assays plus one viral
-failure; its mean Spearman (0.562) is not comparable to any published number. All
+failure; its mean Spearman (0.562 over the eight non-viral assays, 0.511 over all
+nine) is not comparable to any published number. All
 217 assays:
 
 <!-- BEGIN GENERATED: full_benchmark -->
@@ -239,7 +291,8 @@ alignment method is.
 
 ## The top-k problem is not about burial
 
-Why are the model's top 10 picks no better than random on five of nine assays?
+Why are the model's top 10 picks indistinguishable from random on seven of nine
+assays?
 The natural suspicion is burial: nearly any substitution at a buried residue is
 damaging, so ranking among those variants is compressed, while an exposed residue
 spans a wider range. ProteinGym distributes AlphaFold2 models for all 217 assays,
@@ -279,8 +332,9 @@ at least 200 of them) as replicate measurements; the full table is in
 [RESULTS.md](RESULTS.md#replicate-assay-agreement-and-decile-shape). The median
 top-10 recall of one assay against its replicate is 0.350, the median Spearman
 over the whole shared set 0.610, the median Jaccard overlap of the two top deciles
-0.161, and the model's own mean top-10 recall 0.323 over 217 assays and 0.326 over
-the 46 assays that have a replicate.
+0.161, and the model's own mean top-10 recall 0.323 over 217 assays, 0.329 over the
+51 assays in those 37 pairs and 0.326 over the 46 assays in the 32 pairs with at
+least 1,000 shared variants (the set the pooled test below uses).
 
 **What 0.350 is, and what it is not.** It is how well one assay agrees with
 another on which variants are in the top 10%. It is *not* an information-theoretic
@@ -290,8 +344,8 @@ quantity, their agreement is attenuated by both errors, and a predictor that
 tracked the latent quantity closely could beat their mutual agreement without
 contradicting anything. Two further problems with the original sentence are fixed
 here. 0.350 was a median over 37 replicate pairs and 0.323 a mean over a different
-population, 217 assays; those are not comparable, hence the 0.326 over the 46
-assays that have a replicate. And the honest question is not "is the model near
+population, 217 assays; those are not comparable, hence the 0.329 over the 51
+assays in the 37 pairs. And the honest question is not "is the model near
 0.35" but "does the model's recall rise when the target gets closer to the
 truth". Inside one assay's top decile the measurement error (median 0.592 sd
 units) is larger than the decile's whole spread (0.294); on 29 of 37 pairs the
@@ -644,15 +698,28 @@ tests/             276 tests; the ones needing a GPU and a model download are
 ```
 pip install -e ".[dev]"
 pytest -m "not slow"        # 261 tests, no model needed
-pytest -m slow              # downloads an 8M checkpoint, ~30 MB
+pytest -m slow              # downloads an 8M checkpoint AND ~1.6 GB of ProteinGym archives
 ```
 
-**The assay data is not committed** (`data/` is git-ignored, ~50 MB of
-ProteinGym CSVs). On a fresh clone the nine tests that read real assays fail
+**The assay data is not committed** (`data/` is git-ignored). The slow tests fetch
+three ProteinGym archives into it on first use, measured on a fresh clone:
+substitutions 43 MB, MSAs 1.50 GB, AlphaFold2 structures 19 MB. On a fresh clone
+the nine tests that read real assays fail
 with "assays not downloaded" rather than skipping, because a missing input you
-did not ask to miss is a failure, not a pass. Either fetch the data
-(`from variant_effect import data; data.ensure_assays()`) or run the suite on a
-machine without it using the explicit escape:
+did not ask to miss is a failure, not a pass. Either fetch the data or run the
+suite on a machine without it using the explicit escape. The fetch has to name
+all 217 assays (about 1 GB extracted); a bare `data.ensure_assays()` extracts
+only the eight default assays and leaves the same nine tests failing:
+
+```
+python -c "from variant_effect import data; data.ensure_assays(list(data.reference_table()['DMS_id']))"
+```
+
+```
+pytest                      # 276 passed, with the data
+```
+
+The escape:
 
 ```
 VE_ALLOW_MISSING_DATA=1 pytest -m "not slow"    # 253 passed, 8 skipped, no data/
@@ -710,10 +777,11 @@ ESM-C, a different architecture and training set, fails harder rather than diffe
 (0.238 on virus against 0.465 elsewhere, a gap of −0.227 where ESM-2 650M's is −0.198, at
 300M and 600M alike). The retrieval-augmented methods (AIDO Protein-RAG 16B −0.024;
 Protriever +0.018 over the 200 assays where it is reported) have nearly closed a gap that
-costs ESM-2 650M 0.198 of its 0.414 non-viral correlation, about 48% of it. (An earlier
-version divided by 0.466, which is ESM-C's non-viral mean and not ESM-2's; the family mean
-0.397 and 650M's own headline 0.414 put the same gap at 47.8% or 49.9%, and the conclusion
-does not depend on the denominator.) The one row that does not fit is RITA (+0.021), also
+costs ESM-2 650M 0.198 of its 0.466 non-viral per-assay mean, about 42% of it. (An
+earlier version said 48%, dividing by the 0.414 headline. That headline is a two-stage
+aggregate over all 217 assays, viral ones included, not a non-viral mean; 650M's own
+non-viral per-assay mean in `results/families/per_method_viral_gap.csv` is 0.4665, the
+column the gap itself is computed on.) The one row that does not fit is RITA (+0.021), also
 the lowest-scoring sequence-only family on non-viral assays (0.355), so its flatness is more
 likely a ceiling effect than a viral strength; it is reported rather than trimmed, because
 trimming one inconvenient family is how a trend becomes a story. Per-assay means against
@@ -830,8 +898,8 @@ What is still open:
   hard to resolve rather than unrankable: `scripts/run_topk_analysis.py` measures
   truth against truth across 37 replicate assay pairs and gets a median top-10
   recall of 0.35 against the model's 0.32, but those are a median over 37 pairs
-  and a mean over 217 assays, so they are not comparable — see the 0.326 over the
-  46 assays that have a replicate, and the section above for why 0.35 is
+  and a mean over 217 assays, so they are not comparable — see the 0.329 over the
+  51 assays in those pairs, and the section above for why 0.35 is
   agreement between two noisy readings rather than a ceiling. On 29 of those
   pairs the top decile's entire spread is smaller than one measurement's error.
   The heterogeneity candidate does not survive: decile shape does not predict

@@ -53,11 +53,11 @@ differ by about 0.03. Both are reported. On the per-assay column, AIDO Protein-R
 What matters for the viral question is neither level: AIDO's viral mean (0.521) is
 barely below its non-viral mean (0.545), a gap of -0.024, and Protriever is
 flatter still at +0.018 over the 200 assays where it is reported. Both retrieval
-methods have nearly closed a gap that costs ESM-2 650M 0.198 of its 0.414
-non-viral correlation, about 48% of it. (An earlier version of the README divided
-by 0.466, which is ESM-C's non-viral mean and not ESM-2's; the family mean is
-0.397 and 650M's own headline is 0.414, which puts the same gap at 47.8% or 49.9%
-depending on which you take. The conclusion does not depend on the denominator.)
+methods have nearly closed a gap that costs ESM-2 650M 0.198 of its 0.466
+non-viral per-assay mean, about 42% of it. (An earlier version said 48%, dividing
+by the 0.414 headline, which is a two-stage aggregate over all 217 assays and not
+a non-viral mean; 650M's non-viral per-assay mean in per_method_viral_gap.csv is
+0.4665, the column the gap is computed on.)
 
 The one row that does not fit: RITA, an autoregressive sequence model, has a
 slightly positive gap (+0.021). It is also the lowest-scoring sequence-only
