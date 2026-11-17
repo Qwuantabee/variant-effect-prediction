@@ -115,7 +115,7 @@ def test_resampling_unit_same_estimate_different_verdict():
 
 def test_superseded_variant_level_interval_is_reproducible():
     """Figure d draws the first run's variant-level interval from a verbatim
-    copy of results/epistasis_replicated/gaps.csv at 081e21b. Reproduce it:
+    copy of results/epistasis_replicated/gaps.csv at c1e39b0. Reproduce it:
     resample the 20,124 doubles and 2,948 singles of the committed scored frame
     as independent variants (no position labels) with the repo's own
     gap_bootstrap, same B and seed as the script. Position labels would give

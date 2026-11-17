@@ -235,7 +235,7 @@ opposite the hypothesis, the second includes it and is about three times wider (
 against 0.066). Right, top-decile recall: −0.125 either way, [−0.172, −0.081] by
 variant and [−0.234, −0.008] by position, which only barely excludes zero. The
 variant-level numbers are the superseded first run, kept as
-`results/epistasis_replicated/gaps_variant_level_081e21b.csv` and reproduced from the
+`results/epistasis_replicated/gaps_variant_level_c1e39b0.csv` and reproduced from the
 committed scored frame by `tests/test_figures.py`. SPG1 is not drawn: its first run
 used a different join, so the two intervals would not be for the same gap.*
 

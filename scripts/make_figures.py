@@ -657,10 +657,10 @@ def fig_model_vs_ceiling():
 # ---- d) position clustering decides the RASK sign ---------------------------
 
 # The variant-level interval of the first RASK run, kept verbatim: results/
-# epistasis_replicated/gaps.csv as committed in 081e21b, before the intervals
-# were re-drawn by position (fa74eb4). The point estimate is identical to the
+# epistasis_replicated/gaps.csv as committed in c1e39b0, before the intervals
+# were re-drawn by position (3d3498f). The point estimate is identical to the
 # current z-pool row; only the resampling unit differs.
-SUPERSEDED_GAPS = REP / "gaps_variant_level_081e21b.csv"
+SUPERSEDED_GAPS = REP / "gaps_variant_level_c1e39b0.csv"
 
 
 def resampling_unit_data():
@@ -751,7 +751,7 @@ def fig_resampling_unit():
                  y=0.975)
     _source_note(fig, "source: results/epistasis_replicated/gaps.csv (position level, "
                       "z-pool target, 1,000 draws) and its superseded first run "
-                      "gaps_variant_level_081e21b.csv (variant level)\n"
+                      "gaps_variant_level_c1e39b0.csv (variant level)\n"
                       f"RASK_HUMAN, {d['n_singles']:,} shared singles and "
                       f"{d['n_doubles']:,} shared doubles on {d['positions']} positions  |  "
                       "SPG1 is not drawn: its first run used a different join, so its two "
