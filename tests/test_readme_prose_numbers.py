@@ -6,6 +6,7 @@ recomputes the value from a committed artefact under `results/` and asserts the
 README contains it, rounded the way the README prints it. A figure that drifts,
 or a sentence edited without its number, fails here.
 """
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -36,11 +37,21 @@ def nonviral_means():
     return nv.groupby("method").spearman.mean(), b
 
 
-@pytest.mark.parametrize("method", ["esm2", "blosum62", "hydropathy", "volume",
-                                    "pro_gly", "charge", "random"])
+ROW_LABEL = {"esm2": "ESM-2 650M", "blosum62": "BLOSUM62", "hydropathy": "hydropathy change",
+             "volume": "side-chain volume change", "pro_gly": "proline/glycine heuristic",
+             "charge": "charge change", "random": "random"}
+
+
+@pytest.mark.parametrize("method", list(ROW_LABEL))
 def test_baseline_table_values(nonviral_means, method):
+    """The value in the README table row itself, not just anywhere in the text."""
     means, _ = nonviral_means
-    assert _has(_minus(means[method], 3)), (method, means[method])
+    text = (ROOT / "README.md").read_text().replace("\u2212", "-")
+    label = re.escape(ROW_LABEL[method])
+    m = re.search(rf"^\| (?:\*\*)?{label}(?:\*\*)? \| (?:\*\*)?(-?\d\.\d{{3}})(?:\*\*)? \|",
+                  text, re.M)
+    assert m, f"no baselines table row for {method}"
+    assert m.group(1) == _minus(means[method], 3), (method, m.group(1), means[method])
 
 
 def test_nine_assay_mean_over_all_nine(nonviral_means):
