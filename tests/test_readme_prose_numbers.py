@@ -1,4 +1,4 @@
-"""Hand-typed numbers in the README prose must equal what the committed CSVs give.
+"""Hand-typed numbers in the README (and docs/) prose must equal what the committed CSVs give.
 
 The generated tables are already guarded by `report_tables.py`; this covers the
 numbers a person typed into sentences and into the baselines table. Each check
@@ -12,7 +12,11 @@ import pandas as pd
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-README = (ROOT / "README.md").read_text().replace("−", "-")
+# The README plus the long-form pages it moved text to: a number counts as published
+# if either prints it.
+README = "\n".join(
+    p.read_text() for p in [ROOT / "README.md", *sorted((ROOT / "docs").glob("*.md"))]
+).replace("\u2212", "-")
 RES = ROOT / "results"
 
 

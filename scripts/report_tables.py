@@ -32,6 +32,7 @@ from variant_effect import aggregate, data  # noqa: E402
 
 README = ROOT / "README.md"
 RESULTS_PAGE = ROOT / "RESULTS.md"
+DOCS_DIR = ROOT / "docs"
 # Tables that are written to RESULTS.md instead of the README. The replicated-
 # epistasis table is NOT here: a test compares it with the README, byte for byte.
 PAGE_TABLES = ("topk_ceiling", "latent_truth", "sim_controls", "epistasis",
@@ -795,11 +796,16 @@ def main():
     ap.add_argument("--write", action="store_true")
     args = ap.parse_args()
 
-    docs = {p: p.read_text() for p in (README, RESULTS_PAGE) if p.exists()}
+    docs = {p: p.read_text() for p in (README, RESULTS_PAGE, *sorted(DOCS_DIR.glob("*.md")))
+            if p.exists()}
     for name in TABLES:
         body = render(name)
-        home = RESULTS_PAGE if name in PAGE_TABLES else README
         begin, end = BEGIN.format(name), END.format(name)
+        if name in PAGE_TABLES:
+            home = RESULTS_PAGE
+        else:  # README first, then the long-form pages under docs/
+            homes = [p for p in docs if p != RESULTS_PAGE and begin in docs[p]]
+            home = README if README in homes else (homes[0] if homes else README)
         if begin not in docs.get(home, ""):
             print(f"(no marker for {name} in {home.name})")
             continue
