@@ -28,4 +28,6 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# src layout: lets a fresh clone run `pytest` without `pip install -e .`
+pythonpath = ["src"]
 markers = ["slow: needs a model download and a GPU"]
