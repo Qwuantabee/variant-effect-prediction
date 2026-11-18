@@ -125,11 +125,3 @@ What is still open:
   Mann-Whitney) the evidence is p = 0.021 (U = 8), not the p = 0.00047 that
   counting 42 checkpoints gave. See "The viral split is not an ESM-2
   artefact"
-
-## Note on how this was built
-
-Written with Claude (Anthropic) as a coding assistant. I directed the work:
-chose the benchmark and the validation strategy, decided what the baselines
-needed to be, and interpreted the results. The findings worth defending —
-exact reproduction of the published numbers, the gap between Spearman and
-top-k recall, and the viral failure mode — came from insisting on checks that
